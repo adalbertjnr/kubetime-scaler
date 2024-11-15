@@ -1,0 +1,32 @@
+apiVersion: downscaler.go/v1alpha1
+kind: Downscaler
+metadata:
+  name: downscaler
+  namespace: downscaler
+spec:
+  schedule:
+    timeZone: "America/Sao_Paulo"
+    recurrence: "MON-FRI"
+  namespacesRules:
+    exclude:
+      namespaces:
+        - "namespace1"
+        - "namespace2"
+        - "namespace3"
+    include:
+      withRulesByNamespaces:
+        rules:
+          - namespaces:
+              - "namespace5"
+              - "namespace6"
+            upscaleTime: "05:00"
+            downscaleTime: "22:00"
+          - namespaces:
+              - "namespace7"
+              - "namespace8"
+            upscaleTime: "06:00"
+            downscaleTime: "21:00"
+          - namespaces:
+              - "any"
+            upscaleTime: "04:30"
+            downscaleTime: "23:00"
