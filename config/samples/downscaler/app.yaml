@@ -8,7 +8,7 @@ spec:
     cronLoggerInterval: 10 
   schedule:
     timeZone: "America/Sao_Paulo"
-    recurrence: "MON-FRI"
+    recurrence: "MON-SAT"
   namespacesRules:
     exclude:
       namespaces:
@@ -20,5 +20,5 @@ spec:
         rules:
           - namespaces:
               - "app"
-            upscaleTime: "16:51"
-            downscaleTime: "16:50"
+            upscaleTime: "15:40"
+            downscaleTime: "15:39"

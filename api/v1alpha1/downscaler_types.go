@@ -55,11 +55,25 @@ type WithRulesByNamespaces struct {
 	Rules []Rules `json:"rules,omitempty"`
 }
 
-type Rules struct {
-	Namespaces    []string `json:"namespaces,omitempty"`
-	UpscaleTime   string   `json:"upscaleTime,omitempty"`
-	DownscaleTime string   `json:"downscaleTime,omitempty"`
+type Namespace string
+
+func (ns *Namespace) Ignored(e map[string]struct{}) bool {
+	if _, found := e[ns.String()]; found {
+		return true
+	}
+	return false
 }
+
+func (ns *Namespace) String() string {
+	return string(*ns)
+}
+
+type Rules struct {
+	Namespaces    []Namespace `json:"namespaces,omitempty"`
+	UpscaleTime   string      `json:"upscaleTime,omitempty"`
+	DownscaleTime string      `json:"downscaleTime,omitempty"`
+}
+
 type Exclude struct {
 	Namespaces []string `json:"namespaces,omitempty"`
 }

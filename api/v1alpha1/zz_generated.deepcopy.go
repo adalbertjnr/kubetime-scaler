@@ -201,7 +201,7 @@ func (in *Rules) DeepCopyInto(out *Rules) {
 	*out = *in
 	if in.Namespaces != nil {
 		in, out := &in.Namespaces, &out.Namespaces
-		*out = make([]string, len(*in))
+		*out = make([]Namespace, len(*in))
 		copy(*out, *in)
 	}
 }

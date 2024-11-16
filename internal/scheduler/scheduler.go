@@ -30,60 +30,59 @@ type Downscaler struct {
 	cancelFunc context.CancelFunc
 }
 
-func (d *Downscaler) Client(c *client.APIClient) *Downscaler {
-	d.client = c
-	return d
+func (dc *Downscaler) Client(c *client.APIClient) *Downscaler {
+	dc.client = c
+	return dc
 }
 
-func (d *Downscaler) Run() (ctrl.Result, error) {
-	d.initializeCronClient()
+func (dc *Downscaler) Run() (ctrl.Result, error) {
+	if err := dc.initializeCronClient(); err != nil {
+		return ctrl.Result{}, err
+	}
 
-	d.initializeCronTasks()
+	dc.initializeCronTasks()
 
 	return ctrl.Result{}, nil
 }
 
-func (d *Downscaler) initializeCronTasks() {
-	d.clean()
+func (dc *Downscaler) addCronJob(scaleStr, namespace string, replicas int) {
+	expression := buildCronExpression(dc.recurrence(), scaleStr)
+	_, err := dc.cron.AddFunc(expression, dc.job(namespace, replicas))
+	if err != nil {
+		slog.Error("cron", "scheduling error", err)
+	}
+}
 
-	spec := d.app.Spec
+func (dc *Downscaler) initializeCronTasks() {
+	dc.cleanCronEntries()
 
-	for _, rule := range spec.NamespacesRules.Include.WithRulesByNamespaces.Rules {
+	for _, rule := range dc.rules() {
 		for _, namespace := range rule.Namespaces {
-
-			upscaleExpression := buildCronExpression(spec.Schedule.Recurrence, rule.UpscaleTime)
-			_, err := d.cron.AddFunc(upscaleExpression, d.job(namespace, upscaleReplicas))
-			if err != nil {
-				slog.Error("cron", "scheduling error", err)
+			if namespace.Ignored(excluded(dc.excludedNamespaces(), func(namespace string) (string, struct{}) { return namespace, struct{}{} })) {
+				dc.log.Info("cron", "ignoring namespace during cron task initialiation", namespace.String())
 				continue
 			}
-
-			downscaleExpression := buildCronExpression(spec.Schedule.Recurrence, rule.DownscaleTime)
-			_, err = d.cron.AddFunc(downscaleExpression, d.job(namespace, downscaleReplicas))
-			if err != nil {
-				slog.Error("cron", "scheduling error", err)
-				continue
-			}
+			dc.addCronJob(rule.UpscaleTime, namespace.String(), upscaleReplicas)
+			dc.addCronJob(rule.DownscaleTime, namespace.String(), downscaleReplicas)
 		}
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	d.cancelFunc = cancel
+	dc.cancelFunc = cancel
 
-	go d.notifyCronEntries(ctx)
+	go dc.notifyCronEntries(ctx)
 
-	d.cron.Start()
+	dc.cron.Start()
 }
 
-func (d *Downscaler) notifyCronEntries(ctx context.Context) {
-	interval := d.app.Spec.Config.CronLoggerInterval
+func (dc *Downscaler) notifyCronEntries(ctx context.Context) {
+	interval := dc.app.Spec.Config.CronLoggerInterval
 	if interval <= 0 {
 		interval = 300
 	}
 
 	ticker := time.NewTicker(time.Second * time.Duration(interval))
-	d.log.Info("cron notification started", "interval", interval)
-	// slog.Info("cron notification started", "interval", interval)
+	dc.log.Info("cron notification started", "interval", interval)
 	defer ticker.Stop()
 
 	for {
@@ -91,17 +90,16 @@ func (d *Downscaler) notifyCronEntries(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			for _, entry := range d.cron.Entries() {
-				d.log.Info("cron", "entryID", entry.ID, "nextRun", entry.Next)
-				// slog.Info("cron", "entryID", entry.ID, "nextRun", entry.Next)
+			for _, entry := range dc.cron.Entries() {
+				dc.log.Info("cron", "entryID", entry.ID, "nextRun", entry.Next)
 			}
 		}
 	}
 }
 
-func (d *Downscaler) job(namespace string, replicas int) func() {
+func (dc *Downscaler) job(namespace string, replicas int) func() {
 	return func() {
-		deployments, err := d.client.GetDeployments(namespace)
+		deployments, err := dc.client.GetDeployments(namespace)
 		if err != nil {
 			slog.Error("client", "error get deployments", err)
 			return
@@ -110,13 +108,12 @@ func (d *Downscaler) job(namespace string, replicas int) func() {
 		for _, deployment := range deployments.Items {
 			before := *deployment.Spec.Replicas
 
-			if err := d.client.PatchDeployment(replicas, &deployment); err != nil {
+			if err := dc.client.PatchDeployment(replicas, &deployment); err != nil {
 				slog.Error("client", "error patching deployment", err)
 				return
 			}
 
-			d.log.Info("client patching deployment replicas", "before", before, "after", replicas)
-			// slog.Info("client patching deployment replicas", "before", before, "after", replicas)
+			dc.log.Info("client patching deployment replicas", "before", before, "after", replicas)
 		}
 	}
 }
@@ -131,23 +128,23 @@ func (s *Downscaler) Logger(log logr.Logger) *Downscaler {
 	return s
 }
 
-func (d *Downscaler) initializeCronClient() (ctrl.Result, error) {
-	if d.cron == nil {
-		downscaler, err := d.client.GetDownscaler()
+func (dc *Downscaler) initializeCronClient() error {
+	if dc.cron == nil {
+		downscaler, err := dc.client.GetDownscaler()
 		if err != nil {
-			return ctrl.Result{}, err
+			return err
 		}
 
 		location, err := time.LoadLocation(downscaler.Spec.Schedule.TimeZone)
 		if err != nil {
-			return ctrl.Result{}, err
+			return err
 		}
 
 		cron := cron.New(cron.WithLocation(location))
-		d.cron = cron
+		dc.cron = cron
 	}
 
-	return ctrl.Result{}, nil
+	return nil
 }
 
 func buildCronExpression(recurrence, timeStr string) string {
@@ -160,19 +157,38 @@ func buildCronExpression(recurrence, timeStr string) string {
 	return fmt.Sprintf("%d %d * * %s", t.Minute(), t.Hour(), recurrence)
 }
 
-func (d *Downscaler) clean() {
-	entries := d.cron.Entries()
+func (dc *Downscaler) cleanCronEntries() {
+	entries := dc.cron.Entries()
 
-	if d.cancelFunc != nil {
-		d.cancelFunc()
+	if dc.cancelFunc != nil {
+		dc.cancelFunc()
 	}
 
 	if len(entries) > 0 {
 		for _, entry := range entries {
-			d.cron.Remove(entry.ID)
-			d.log.Info("cron", "cleaning entryID", entry.ID)
-			// slog.Info("cron", "cleaning entryID", entry.ID)
+			dc.cron.Remove(entry.ID)
+			dc.log.Info("cron", "cleaning entryID", entry.ID)
 		}
-
 	}
+}
+
+func (dc *Downscaler) rules() []downscalergov1alpha1.Rules {
+	return dc.app.Spec.NamespacesRules.Include.WithRulesByNamespaces.Rules
+}
+
+func (dc *Downscaler) excludedNamespaces() []string {
+	return dc.app.Spec.NamespacesRules.Exclude.Namespaces
+}
+
+func (dc *Downscaler) recurrence() string {
+	return dc.app.Spec.Schedule.Recurrence
+}
+
+func excluded(collection []string, fn func(namespace string) (string, struct{})) map[string]struct{} {
+	result := make(map[string]struct{}, len(collection))
+	for i := range collection {
+		namespace, empty := fn(collection[i])
+		result[namespace] = empty
+	}
+	return result
 }

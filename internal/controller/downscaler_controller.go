@@ -53,16 +53,18 @@ type DownscalerReconciler struct {
 func (r *DownscalerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	dc := r.DownscalerScheduler
 
+	logger := log.FromContext(ctx)
+
 	var app downscalergov1alpha1.Downscaler
 	if err := r.Get(ctx, req.NamespacedName, &app); err != nil {
 		slog.Error("reconcile", "error", err)
 		return ctrl.Result{}, err
 	}
 
-	slog.Info("reconcile", "kind", app.Kind, "name", app.Name, "status", "updated")
+	logger.Info("reconcile", "kind", app.Kind, "name", app.Name, "status", "updated")
 
 	if valid := dc.Add(ctx, app).
-		Logger(log.FromContext(ctx)).
+		Logger(logger).
 		Validate(); !valid {
 		return ctrl.Result{}, nil
 	}
