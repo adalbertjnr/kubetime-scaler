@@ -57,15 +57,15 @@ type WithRulesByNamespaces struct {
 
 type Namespace string
 
-func (ns *Namespace) Ignored(e map[string]struct{}) bool {
+func (ns Namespace) Ignored(e map[string]struct{}) bool {
 	if _, found := e[ns.String()]; found {
 		return true
 	}
 	return false
 }
 
-func (ns *Namespace) String() string {
-	return string(*ns)
+func (ns Namespace) String() string {
+	return string(ns)
 }
 
 type Rules struct {

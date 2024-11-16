@@ -4,29 +4,31 @@ metadata:
   name: downscaler
   namespace: downscaler
 spec:
+  config:
+    cronLoggerInterval: 20 
+    # this database flag means it will be able to upscale to deployment to the previous replica state before the last downscale
+    database: false
   schedule:
     timeZone: "America/Sao_Paulo"
-    recurrence: "MON-FRI"
+    recurrence: "MON-SAT"
   namespacesRules:
     exclude:
       namespaces:
-        - "namespace1"
-        - "namespace2"
-        - "namespace3"
+        - "app2"
+        - "app3"
+        - "app4"
     include:
       withRulesByNamespaces:
         rules:
           - namespaces:
-              - "namespace5"
-              - "namespace6"
-            upscaleTime: "05:00"
-            downscaleTime: "22:00"
+              - "app"
+            upscaleTime: "17:10"
+            downscaleTime: "17:08"
           - namespaces:
-              - "namespace7"
-              - "namespace8"
-            upscaleTime: "06:00"
-            downscaleTime: "21:00"
+              - "app5"
+            upscaleTime: "17:09"
+            downscaleTime: "17:08"
           - namespaces:
               - "any"
-            upscaleTime: "04:30"
-            downscaleTime: "23:00"
+            upscaleTime: "17:09"
+            downscaleTime: "17:08"

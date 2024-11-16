@@ -56,9 +56,18 @@ func (dc *Downscaler) addCronJob(scaleStr, namespace string, replicas int) {
 func (dc *Downscaler) initializeCronTasks() {
 	dc.cleanCronEntries()
 
-	for _, rule := range dc.rules() {
+	excludedNamespaces := filter(dc.excludedNamespaces(), func(namespace string) (string, struct{}) { return namespace, struct{}{} })
+	includedNamespaces := filter(dc.includedNamespaces(), func(namespace string) (string, struct{}) { return namespace, struct{}{} })
+
+	clusterNamespaces, err := dc.client.GetNamespaces()
+	if err != nil {
+		slog.Error("listing namespaces error", "error", err)
+		return
+	}
+
+	for _, rule := range clusterNamespaces.Items {
 		for _, namespace := range rule.Namespaces {
-			if namespace.Ignored(excluded(dc.excludedNamespaces(), func(namespace string) (string, struct{}) { return namespace, struct{}{} })) {
+			if namespace.Ignored(excludedNamespaces) {
 				dc.log.Info("cron", "ignoring namespace during cron task initialiation", namespace.String())
 				continue
 			}
@@ -180,11 +189,27 @@ func (dc *Downscaler) excludedNamespaces() []string {
 	return dc.app.Spec.NamespacesRules.Exclude.Namespaces
 }
 
+func (dc *Downscaler) includedNamespaces() map[string]string {
+	var mapping map[string]string
+
+	for _, rule := range dc.rules() {
+		for _, namespace := range rule.Namespaces {
+			mapping[namespace.String()] = rule.UpscaleTime + "-" + rule.DownscaleTime
+		}
+	}
+
+	return mapping
+}
+
+func (dc *Downscaler) processAny() string {
+	return dc.app.Spec.Schedule.Recurrence
+}
+
 func (dc *Downscaler) recurrence() string {
 	return dc.app.Spec.Schedule.Recurrence
 }
 
-func excluded(collection []string, fn func(namespace string) (string, struct{})) map[string]struct{} {
+func filter(collection []string, fn func(namespace string) (string, struct{})) map[string]struct{} {
 	result := make(map[string]struct{}, len(collection))
 	for i := range collection {
 		namespace, empty := fn(collection[i])

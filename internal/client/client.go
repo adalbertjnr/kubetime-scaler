@@ -5,6 +5,7 @@ import (
 
 	downscalergov1alpha1 "github.com/adalbertjnr/downscaler-operator/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -37,6 +38,16 @@ func (c *APIClient) GetDeployment(name, namespace string) (*appsv1.Deployment, e
 	return &deployment, nil
 }
 
+func (c *APIClient) GetNamespaces() (*v1.NamespaceList, error) {
+	var namespaces v1.NamespaceList
+
+	if err := c.Client.List(c.ctx, &namespaces); err != nil {
+		return nil, err
+	}
+
+	return &namespaces, nil
+}
+
 func (c *APIClient) GetDeployments(namespace string) (*appsv1.DeploymentList, error) {
 	var deploymentList appsv1.DeploymentList
 
@@ -50,7 +61,6 @@ func (c *APIClient) GetDeployments(namespace string) (*appsv1.DeploymentList, er
 }
 
 func (c *APIClient) PatchDeployment(replicas int, deployment *appsv1.Deployment) error {
-
 	patchOpts := client.Merge
 
 	r := int32(replicas)
