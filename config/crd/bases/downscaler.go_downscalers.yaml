@@ -43,9 +43,18 @@ spec:
                 properties:
                   cronLoggerInterval:
                     type: integer
+                  persistence:
+                    type: boolean
+                required:
+                - cronLoggerInterval
+                - persistence
                 type: object
               downscalerOptions:
                 properties:
+                  resourceScaling:
+                    items:
+                      type: string
+                    type: array
                   timeRules:
                     properties:
                       rules:
@@ -53,18 +62,30 @@ spec:
                           properties:
                             downscaleTime:
                               type: string
+                            name:
+                              type: string
                             namespaces:
+                              items:
+                                type: string
+                              type: array
+                            overrideScaling:
                               items:
                                 type: string
                               type: array
                             upscaleTime:
                               type: string
+                          required:
+                          - downscaleTime
+                          - name
+                          - namespaces
+                          - upscaleTime
                           type: object
                         type: array
                     required:
                     - rules
                     type: object
                 required:
+                - resourceScaling
                 - timeRules
                 type: object
               schedule:
@@ -73,6 +94,9 @@ spec:
                     type: string
                   timeZone:
                     type: string
+                required:
+                - recurrence
+                - timeZone
                 type: object
             required:
             - config

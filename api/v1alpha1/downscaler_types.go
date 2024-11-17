@@ -34,12 +34,13 @@ type DownscalerSpec struct {
 }
 
 type Config struct {
-	CronLoggerInterval int `json:"cronLoggerInterval,omitempty"`
+	CronLoggerInterval int  `json:"cronLoggerInterval"`
+	Persistence        bool `json:"persistence"`
 }
 
 type Schedule struct {
-	TimeZone   string `json:"timeZone,omitempty"`
-	Recurrence string `json:"recurrence,omitempty"`
+	TimeZone   string `json:"timeZone"`
+	Recurrence string `json:"recurrence"`
 }
 
 type TimeRules struct {
@@ -47,7 +48,8 @@ type TimeRules struct {
 }
 
 type DownscalerOptions struct {
-	TimeRules *TimeRules `json:"timeRules"`
+	TimeRules       *TimeRules `json:"timeRules"`
+	ResourceScaling []string   `json:"resourceScaling"`
 }
 
 type Namespace string
@@ -64,9 +66,11 @@ func (ns Namespace) String() string {
 }
 
 type Rules struct {
-	Namespaces    []Namespace `json:"namespaces,omitempty"`
-	UpscaleTime   string      `json:"upscaleTime,omitempty"`
-	DownscaleTime string      `json:"downscaleTime,omitempty"`
+	Name            string      `json:"name"`
+	Namespaces      []Namespace `json:"namespaces"`
+	UpscaleTime     string      `json:"upscaleTime"`
+	DownscaleTime   string      `json:"downscaleTime"`
+	OverrideScaling []string    `json:"overrideScaling,omitempty"`
 }
 
 // DownscalerStatus defines the observed state of Downscaler
