@@ -8,6 +8,7 @@ import (
 
 	downscalergov1alpha1 "github.com/adalbertjnr/downscaler-operator/api/v1alpha1"
 	"github.com/adalbertjnr/downscaler-operator/internal/client"
+	"github.com/adalbertjnr/downscaler-operator/internal/store"
 	"github.com/go-logr/logr"
 	"github.com/robfig/cron/v3"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -16,6 +17,8 @@ import (
 const (
 	downscaleReplicas int = 0
 	upscaleReplicas   int = 1
+
+	downscalerNamespace = "downscaler"
 )
 
 type Downscaler struct {
@@ -27,6 +30,11 @@ type Downscaler struct {
 
 	cron *cron.Cron
 
+	downscalerNamespace bool
+
+	store       *store.Persistence
+	persistence bool
+
 	cancelFunc context.CancelFunc
 }
 
@@ -35,8 +43,16 @@ func (dc *Downscaler) Client(c *client.APIClient) *Downscaler {
 	return dc
 }
 
+func (dc *Downscaler) Persistence(p *store.Persistence) *Downscaler {
+	if p != nil {
+		dc.store = p
+		dc.persistence = true
+	}
+	return dc
+}
+
 func (dc *Downscaler) Run() (ctrl.Result, error) {
-	if err := dc.initializeCronClient(); err != nil {
+	if err := dc.resetState().createNewClient(); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -47,30 +63,26 @@ func (dc *Downscaler) Run() (ctrl.Result, error) {
 
 func (dc *Downscaler) addCronJob(scaleStr, namespace string, replicas int) {
 	expression := buildCronExpression(dc.recurrence(), scaleStr)
-	_, err := dc.cron.AddFunc(expression, dc.job(namespace, replicas))
+	entryID, err := dc.cron.AddFunc(expression, dc.job(namespace, replicas))
 	if err != nil {
 		slog.Error("cron", "scheduling error", err)
-	}
-}
-
-func (dc *Downscaler) initializeCronTasks() {
-	dc.cleanCronEntries()
-
-	excludedNamespaces := filter(dc.excludedNamespaces(), func(namespace string) (string, struct{}) { return namespace, struct{}{} })
-	includedNamespaces := filter(dc.includedNamespaces(), func(namespace string) (string, struct{}) { return namespace, struct{}{} })
-
-	clusterNamespaces, err := dc.client.GetNamespaces()
-	if err != nil {
-		slog.Error("listing namespaces error", "error", err)
 		return
 	}
 
-	for _, rule := range clusterNamespaces.Items {
+	dc.log.Info("cron", "assigning new cron entryID", entryID)
+}
+
+func (dc *Downscaler) initializeCronTasks() {
+
+	namespaces := set(dc.includedNamespaces(), func(namespace string) (string, struct{}) { return namespace, struct{}{} })
+	if namespaces.hasDownscaler() {
+		dc.downscalerNamespace = true
+	} else {
+		dc.downscalerNamespace = false
+	}
+
+	for _, rule := range dc.rules() {
 		for _, namespace := range rule.Namespaces {
-			if namespace.Ignored(excludedNamespaces) {
-				dc.log.Info("cron", "ignoring namespace during cron task initialiation", namespace.String())
-				continue
-			}
 			dc.addCronJob(rule.UpscaleTime, namespace.String(), upscaleReplicas)
 			dc.addCronJob(rule.DownscaleTime, namespace.String(), downscaleReplicas)
 		}
@@ -91,7 +103,6 @@ func (dc *Downscaler) notifyCronEntries(ctx context.Context) {
 	}
 
 	ticker := time.NewTicker(time.Second * time.Duration(interval))
-	dc.log.Info("cron notification started", "interval", interval)
 	defer ticker.Stop()
 
 	for {
@@ -122,7 +133,7 @@ func (dc *Downscaler) job(namespace string, replicas int) func() {
 				return
 			}
 
-			dc.log.Info("client patching deployment replicas", "before", before, "after", replicas)
+			dc.log.Info("client", "patching deployment", deployment.Name, "namespace", namespace, "before", before, "after", replicas)
 		}
 	}
 }
@@ -137,7 +148,18 @@ func (s *Downscaler) Logger(log logr.Logger) *Downscaler {
 	return s
 }
 
-func (dc *Downscaler) initializeCronClient() error {
+func (dc *Downscaler) resetState() *Downscaler {
+	if dc.cron != nil {
+		dc.cron.Stop()
+		dc.cron = nil
+	}
+	if dc.cancelFunc != nil {
+		dc.cancelFunc()
+	}
+	return dc
+}
+
+func (dc *Downscaler) createNewClient() error {
 	if dc.cron == nil {
 		downscaler, err := dc.client.GetDownscaler()
 		if err != nil {
@@ -151,6 +173,8 @@ func (dc *Downscaler) initializeCronClient() error {
 
 		cron := cron.New(cron.WithLocation(location))
 		dc.cron = cron
+
+		return err
 	}
 
 	return nil
@@ -163,56 +187,43 @@ func buildCronExpression(recurrence, timeStr string) string {
 		return "0 0 * * *"
 	}
 
+	if recurrence == "*" || recurrence == "@daily" {
+		return fmt.Sprintf("%d %d * * *", t.Minute(), t.Hour())
+	}
+
 	return fmt.Sprintf("%d %d * * %s", t.Minute(), t.Hour(), recurrence)
 }
 
-func (dc *Downscaler) cleanCronEntries() {
-	entries := dc.cron.Entries()
-
-	if dc.cancelFunc != nil {
-		dc.cancelFunc()
-	}
-
-	if len(entries) > 0 {
-		for _, entry := range entries {
-			dc.cron.Remove(entry.ID)
-			dc.log.Info("cron", "cleaning entryID", entry.ID)
-		}
-	}
-}
-
 func (dc *Downscaler) rules() []downscalergov1alpha1.Rules {
-	return dc.app.Spec.NamespacesRules.Include.WithRulesByNamespaces.Rules
+	return dc.app.Spec.DownscalerOptions.TimeRules.Rules
 }
 
-func (dc *Downscaler) excludedNamespaces() []string {
-	return dc.app.Spec.NamespacesRules.Exclude.Namespaces
-}
-
-func (dc *Downscaler) includedNamespaces() map[string]string {
-	var mapping map[string]string
-
+func (dc *Downscaler) includedNamespaces() []string {
+	var namespaceList []string
 	for _, rule := range dc.rules() {
 		for _, namespace := range rule.Namespaces {
-			mapping[namespace.String()] = rule.UpscaleTime + "-" + rule.DownscaleTime
+			namespaceList = append(namespaceList, namespace.String())
 		}
 	}
 
-	return mapping
-}
-
-func (dc *Downscaler) processAny() string {
-	return dc.app.Spec.Schedule.Recurrence
+	return namespaceList
 }
 
 func (dc *Downscaler) recurrence() string {
 	return dc.app.Spec.Schedule.Recurrence
 }
 
-func filter(collection []string, fn func(namespace string) (string, struct{})) map[string]struct{} {
-	result := make(map[string]struct{}, len(collection))
-	for i := range collection {
-		namespace, empty := fn(collection[i])
+type filter map[string]struct{}
+
+func (ft filter) hasDownscaler() bool {
+	_, found := ft[downscalerNamespace]
+	return found
+}
+
+func set(namespaces []string, fn func(namespace string) (string, struct{})) filter {
+	result := make(filter, len(namespaces))
+	for i := range namespaces {
+		namespace, empty := fn(namespaces[i])
 		result[namespace] = empty
 	}
 	return result

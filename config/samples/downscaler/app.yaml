@@ -5,29 +5,15 @@ metadata:
   namespace: downscaler
 spec:
   config:
-    cronLoggerInterval: 20 
+    cronLoggerInterval: 10
   schedule:
     timeZone: "America/Sao_Paulo"
-    recurrence: "MON-SAT"
-  namespacesRules:
-    exclude:
-      namespaces:
-        - "app2"
-        - "app3"
-        - "app4"
-    include:
-      withRulesByNamespaces:
-        rules:
-          - namespaces:
-              - "app"
-            upscaleTime: "17:10"
-            downscaleTime: "17:08"
-          - namespaces:
-              - "app5"
-            upscaleTime: "17:09"
-            downscaleTime: "17:08"
-          - namespaces:
-              - "any"
-            upscaleTime: "17:09"
-            downscaleTime: "17:08"
-
+    recurrence: "@daily"
+  downscalerOptions:
+    timeRules:
+      rules:
+        - namespaces:
+          - "app"
+          - "app2"
+          upscaleTime: "15:23"
+          downscaleTime: "15:25"

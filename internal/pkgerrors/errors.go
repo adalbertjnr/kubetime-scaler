@@ -7,9 +7,9 @@ var (
 
 	ErrNilInclude = errors.New("include rules must be provided")
 
-	ErrNilWithRulesByNamespaces = errors.New("withRulesByNamespaces block is required")
-
 	ErrRulesNotProvided = errors.New("rules configuration block is missing")
+
+	ErrTimeRulesBlockNotProvided = errors.New("the user must provide the timeRules")
 
 	ErrEmptyNamespaces = errors.New("namespace list cannot be empty")
 

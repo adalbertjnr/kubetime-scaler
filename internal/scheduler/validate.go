@@ -10,33 +10,26 @@ import (
 )
 
 const (
-	spec                  = "spec"
-	schedule              = "schedule"
-	timeZone              = "timeZone"
-	namespaces            = "namespaces"
-	namespacesRules       = "namespacesRules"
-	include               = "include"
-	WithRulesByNamespaces = "withRulesByNamespaces"
-	rules                 = "rules"
-	upscaleTime           = "upscaleTime"
-	downscaleTime         = "downscaleTime"
+	Spec = "spec"
+
+	Schedule = "schedule"
+	TimeZone = "timeZone"
+
+	DownscalerOptions = "downscalerOptions"
+	TimeRules         = "timeRules"
+	Rules             = "rules"
+	Namespaces        = "namespaces"
+	UpscaleTime       = "upscaleTime"
+	DownscaleTime     = "downscaleTime"
 )
 
 func (s *Downscaler) Validate() bool {
 	valid := true
 
-	spec := s.app.Spec
-
 	var validationErrors []error
-	processScheduleFields(
-		&spec.Schedule,
-		&validationErrors,
-	)
 
-	processIncludeFields(
-		spec.NamespacesRules.Include,
-		&validationErrors,
-	)
+	processScheduleFields(&s.app.Spec.Schedule, &validationErrors)
+	processDownscalerOptions(&s.app.Spec.DownscalerOptions, &validationErrors)
 
 	if len(validationErrors) > 0 {
 		for _, err := range validationErrors {
@@ -48,80 +41,55 @@ func (s *Downscaler) Validate() bool {
 	return valid
 }
 
-func processScheduleFields(scheduleField *v1alpha1.Schedule, validationErrors *[]error) {
-	if scheduleField == nil {
-		*validationErrors = append(*validationErrors, field.Invalid(
-			field.NewPath(spec).Child(schedule),
-			scheduleField,
-			pkgerrors.ErrNilInclude.Error(),
-		))
+func processScheduleFields(schedule *v1alpha1.Schedule, validationErrors *[]error) {
+	if schedule == nil {
+		err := field.Invalid(field.NewPath(Spec).Child(Schedule), schedule, pkgerrors.ErrNilInclude.Error())
+		*validationErrors = append(*validationErrors, err)
 		return
 	}
-
-	if scheduleField.TimeZone == "" || len(strings.Split(scheduleField.TimeZone, "/")) == 1 {
-		*validationErrors = append(*validationErrors, field.Invalid(
-			field.NewPath(spec).Child(schedule).Child(timeZone),
-			scheduleField.TimeZone,
-			pkgerrors.ErrMalformedTimeZone.Error(),
-		))
+	if schedule.TimeZone == "" || len(strings.Split(schedule.TimeZone, "/")) == 1 {
+		err := field.Invalid(field.NewPath(Spec).Child(Schedule).Child(TimeZone), schedule.TimeZone, pkgerrors.ErrMalformedTimeZone.Error())
+		*validationErrors = append(*validationErrors, err)
 	}
 }
 
-func processIncludeFields(includeField *v1alpha1.Include, validationErrors *[]error) {
-	childBase := field.NewPath(spec).Child(namespacesRules).Child(include)
+func processDownscalerOptions(options *v1alpha1.DownscalerOptions, validationErrors *[]error) {
+	childBase := field.NewPath(Spec).Child(DownscalerOptions)
 
-	if includeField == nil {
-		*validationErrors = append(*validationErrors, field.Invalid(
-			childBase,
-			includeField,
-			pkgerrors.ErrNilInclude.Error(),
-		))
+	if options == nil {
+		err := field.Invalid(childBase, options, pkgerrors.ErrNilInclude.Error())
+		*validationErrors = append(*validationErrors, err)
 		return
 	}
 
-	if includeField.WithRulesByNamespaces == nil {
-		*validationErrors = append(*validationErrors, field.Invalid(
-			childBase.Child(WithRulesByNamespaces),
-			includeField.WithRulesByNamespaces,
-			pkgerrors.ErrNilWithRulesByNamespaces.Error(),
-		))
+	if options.TimeRules == nil {
+		err := field.Invalid(childBase.Child(TimeRules), options.TimeRules, pkgerrors.ErrTimeRulesBlockNotProvided.Error())
+		*validationErrors = append(*validationErrors, err)
 		return
 	}
 
-	if includeField.WithRulesByNamespaces.Rules == nil {
-		*validationErrors = append(*validationErrors, field.Invalid(
-			childBase.Child(WithRulesByNamespaces).Child(rules),
-			includeField.WithRulesByNamespaces.Rules,
-			pkgerrors.ErrRulesNotProvided.Error(),
-		))
+	if options.TimeRules.Rules == nil {
+		err := field.Invalid(childBase.Child(TimeRules).Child(Rules), options.TimeRules.Rules, pkgerrors.ErrRulesNotProvided.Error())
+		*validationErrors = append(*validationErrors, err)
 		return
 	}
 
-	for index, rule := range includeField.WithRulesByNamespaces.Rules {
-		childRule := childBase.Child(WithRulesByNamespaces).Index(index)
+	for index, rule := range options.TimeRules.Rules {
+		childRule := childBase.Child(TimeRules).Index(index)
 
 		if len(rule.Namespaces) == 0 {
-			*validationErrors = append(*validationErrors, field.Invalid(
-				childRule.Child(namespaces),
-				rule.Namespaces,
-				pkgerrors.ErrEmptyNamespaces.Error(),
-			))
+			err := field.Invalid(childRule.Child(Namespaces), rule.Namespaces, pkgerrors.ErrEmptyNamespaces.Error())
+			*validationErrors = append(*validationErrors, err)
 		}
 
 		if len(strings.Split(rule.UpscaleTime, ":")) == 1 {
-			*validationErrors = append(*validationErrors, field.Invalid(
-				childRule.Child(namespaces).Child(upscaleTime),
-				rule.UpscaleTime,
-				pkgerrors.ErrMalforedUpscaleTime.Error(),
-			))
+			err := field.Invalid(childRule.Child(Namespaces).Child(UpscaleTime), rule.UpscaleTime, pkgerrors.ErrMalforedUpscaleTime.Error())
+			*validationErrors = append(*validationErrors, err)
 		}
 
 		if len(strings.Split(rule.DownscaleTime, ":")) == 1 {
-			*validationErrors = append(*validationErrors, field.Invalid(
-				childRule.Child(namespaces).Child(downscaleTime),
-				rule.DownscaleTime,
-				pkgerrors.ErrMalforedDownscaleTime.Error(),
-			))
+			err := field.Invalid(childRule.Child(Namespaces).Child(DownscaleTime), rule.DownscaleTime, pkgerrors.ErrMalforedDownscaleTime.Error())
+			*validationErrors = append(*validationErrors, err)
 		}
 
 	}

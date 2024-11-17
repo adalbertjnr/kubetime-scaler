@@ -38,6 +38,7 @@ import (
 	"github.com/adalbertjnr/downscaler-operator/internal/client"
 	"github.com/adalbertjnr/downscaler-operator/internal/controller"
 	"github.com/adalbertjnr/downscaler-operator/internal/scheduler"
+	"github.com/adalbertjnr/downscaler-operator/internal/store"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -59,6 +60,7 @@ func main() {
 	var probeAddr string
 	var secureMetrics bool
 	var enableHTTP2 bool
+	var enableDatabase bool
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -68,6 +70,8 @@ func main() {
 		"If set the metrics endpoint is served securely")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
+	flag.BoolVar(&enableDatabase, "enable database", false,
+		"If set, the program will persist a database store in /data/db, which means the use must persist it using the deployment")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -130,7 +134,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	downscalerScheduler := (&scheduler.Downscaler{}).Client(c)
+	var db *store.Persistence
+	if enableDatabase {
+		db = &store.Persistence{
+			Deployment: store.NewDeploymentStore(nil),
+			Namespace:  store.NewNamespaceStore(nil),
+		}
+	}
+
+	downscalerScheduler := (&scheduler.Downscaler{}).Client(c).Persistence(db)
 	if err != nil {
 		setupLog.Error(err, "unable to initialize the cron scheduler")
 		os.Exit(1)

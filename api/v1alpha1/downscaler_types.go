@@ -28,9 +28,9 @@ type DownscalerSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	Config          Config          `json:"config"`
-	Schedule        Schedule        `json:"schedule"`
-	NamespacesRules NamespacesRules `json:"namespacesRules"`
+	Config            Config            `json:"config"`
+	Schedule          Schedule          `json:"schedule"`
+	DownscalerOptions DownscalerOptions `json:"downscalerOptions"`
 }
 
 type Config struct {
@@ -42,23 +42,18 @@ type Schedule struct {
 	Recurrence string `json:"recurrence,omitempty"`
 }
 
-type NamespacesRules struct {
-	Exclude *Exclude `json:"exclude,omitempty"`
-	Include *Include `json:"include,omitempty"`
+type TimeRules struct {
+	Rules []Rules `json:"rules"`
 }
 
-type Include struct {
-	WithRulesByNamespaces *WithRulesByNamespaces `json:"withRulesByNamespaces,omitempty"`
-}
-
-type WithRulesByNamespaces struct {
-	Rules []Rules `json:"rules,omitempty"`
+type DownscalerOptions struct {
+	TimeRules *TimeRules `json:"timeRules"`
 }
 
 type Namespace string
 
-func (ns Namespace) Ignored(e map[string]struct{}) bool {
-	if _, found := e[ns.String()]; found {
+func (ns Namespace) Ignored(e map[string]struct{}, downscalerNamespace string) bool {
+	if _, found := e[downscalerNamespace]; found {
 		return true
 	}
 	return false
@@ -72,10 +67,6 @@ type Rules struct {
 	Namespaces    []Namespace `json:"namespaces,omitempty"`
 	UpscaleTime   string      `json:"upscaleTime,omitempty"`
 	DownscaleTime string      `json:"downscaleTime,omitempty"`
-}
-
-type Exclude struct {
-	Namespaces []string `json:"namespaces,omitempty"`
 }
 
 // DownscalerStatus defines the observed state of Downscaler
