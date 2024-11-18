@@ -16,4 +16,8 @@ var (
 	ErrMalforedDownscaleTime = errors.New("provided downscaleTime is malformed")
 
 	ErrMalforedUpscaleTime = errors.New("provided upscaleTime is malformed")
+
+	ErrPatchingTypeNotFound = errors.New("the provided type for patching do not exists")
+
+	ErrListTypeNotFound = errors.New("the provided resource for listing do not exists")
 )

@@ -4,8 +4,8 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/adalbertjnr/downscaler-operator/api/v1alpha1"
-	"github.com/adalbertjnr/downscaler-operator/internal/pkgerrors"
+	"github.com/adalbertjnr/downscalerk8s/api/v1alpha1"
+	"github.com/adalbertjnr/downscalerk8s/internal/pkgerrors"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 

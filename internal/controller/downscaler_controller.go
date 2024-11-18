@@ -25,8 +25,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	downscalergov1alpha1 "github.com/adalbertjnr/downscaler-operator/api/v1alpha1"
-	"github.com/adalbertjnr/downscaler-operator/internal/scheduler"
+	downscalergov1alpha1 "github.com/adalbertjnr/downscalerk8s/api/v1alpha1"
+	"github.com/adalbertjnr/downscalerk8s/internal/scheduler"
 )
 
 // DownscalerReconciler reconciles a Downscaler object

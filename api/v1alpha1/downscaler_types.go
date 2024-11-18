@@ -54,13 +54,6 @@ type DownscalerOptions struct {
 
 type Namespace string
 
-func (ns Namespace) Ignored(e map[string]struct{}, downscalerNamespace string) bool {
-	if _, found := e[downscalerNamespace]; found {
-		return true
-	}
-	return false
-}
-
 func (ns Namespace) String() string {
 	return string(ns)
 }

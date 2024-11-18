@@ -34,11 +34,11 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	downscalergov1alpha1 "github.com/adalbertjnr/downscaler-operator/api/v1alpha1"
-	"github.com/adalbertjnr/downscaler-operator/internal/client"
-	"github.com/adalbertjnr/downscaler-operator/internal/controller"
-	"github.com/adalbertjnr/downscaler-operator/internal/scheduler"
-	"github.com/adalbertjnr/downscaler-operator/internal/store"
+	downscalergov1alpha1 "github.com/adalbertjnr/downscalerk8s/api/v1alpha1"
+	"github.com/adalbertjnr/downscalerk8s/internal/client"
+	"github.com/adalbertjnr/downscalerk8s/internal/controller"
+	"github.com/adalbertjnr/downscalerk8s/internal/scheduler"
+	"github.com/adalbertjnr/downscalerk8s/internal/store"
 	//+kubebuilder:scaffold:imports
 )
 

@@ -6,9 +6,10 @@ import (
 	"log/slog"
 	"time"
 
-	downscalergov1alpha1 "github.com/adalbertjnr/downscaler-operator/api/v1alpha1"
-	"github.com/adalbertjnr/downscaler-operator/internal/client"
-	"github.com/adalbertjnr/downscaler-operator/internal/store"
+	downscalergov1alpha1 "github.com/adalbertjnr/downscalerk8s/api/v1alpha1"
+	"github.com/adalbertjnr/downscalerk8s/internal/client"
+	"github.com/adalbertjnr/downscalerk8s/internal/factory"
+	"github.com/adalbertjnr/downscalerk8s/internal/store"
 	"github.com/go-logr/logr"
 	"github.com/robfig/cron/v3"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -17,8 +18,6 @@ import (
 const (
 	downscaleReplicas int = 0
 	upscaleReplicas   int = 1
-
-	downscalerNamespace = "downscaler"
 )
 
 type Downscaler struct {
@@ -73,14 +72,6 @@ func (dc *Downscaler) addCronJob(scaleStr, namespace string, replicas int) {
 }
 
 func (dc *Downscaler) initializeCronTasks() {
-
-	namespaces := set(dc.includedNamespaces(), func(namespace string) (string, struct{}) { return namespace, struct{}{} })
-	if namespaces.hasDownscaler() {
-		dc.downscalerNamespace = true
-	} else {
-		dc.downscalerNamespace = false
-	}
-
 	for _, rule := range dc.rules() {
 		for _, namespace := range rule.Namespaces {
 			dc.addCronJob(rule.UpscaleTime, namespace.String(), upscaleReplicas)
@@ -119,23 +110,36 @@ func (dc *Downscaler) notifyCronEntries(ctx context.Context) {
 
 func (dc *Downscaler) job(namespace string, replicas int) func() {
 	return func() {
-		deployments, err := dc.client.GetDeployments(namespace)
-		if err != nil {
-			slog.Error("client", "error get deployments", err)
-			return
-		}
+		for _, rule := range dc.rules() {
+			if containsNamespace(namespace, rule.Namespaces) {
+				overrideResource := rule.OverrideScaling
+				if len(overrideResource) == 0 {
+					overrideResource = dc.resourceScaling()
+				}
 
-		for _, deployment := range deployments.Items {
-			before := *deployment.Spec.Replicas
+				for _, resource := range overrideResource {
+					scaler, err := factory.GetScaler(resource, dc.client, dc.log)
+					if err != nil {
+						slog.Error("job", "select scaling error", err)
+						return
+					}
 
-			if err := dc.client.PatchDeployment(replicas, &deployment); err != nil {
-				slog.Error("client", "error patching deployment", err)
-				return
+					if err := scaler.Run(namespace, replicas); err != nil {
+						slog.Error("job", "resource", resource, "scaling error", err)
+					}
+				}
 			}
-
-			dc.log.Info("client", "patching deployment", deployment.Name, "namespace", namespace, "before", before, "after", replicas)
 		}
 	}
+}
+
+func containsNamespace(namespace string, namespaces []downscalergov1alpha1.Namespace) bool {
+	for _, ns := range namespaces {
+		if ns.String() == namespace {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Downscaler) Add(ctx context.Context, app downscalergov1alpha1.Downscaler) *Downscaler {
@@ -198,33 +202,10 @@ func (dc *Downscaler) rules() []downscalergov1alpha1.Rules {
 	return dc.app.Spec.DownscalerOptions.TimeRules.Rules
 }
 
-func (dc *Downscaler) includedNamespaces() []string {
-	var namespaceList []string
-	for _, rule := range dc.rules() {
-		for _, namespace := range rule.Namespaces {
-			namespaceList = append(namespaceList, namespace.String())
-		}
-	}
-
-	return namespaceList
+func (dc *Downscaler) resourceScaling() []string {
+	return dc.app.Spec.DownscalerOptions.ResourceScaling
 }
 
 func (dc *Downscaler) recurrence() string {
 	return dc.app.Spec.Schedule.Recurrence
-}
-
-type filter map[string]struct{}
-
-func (ft filter) hasDownscaler() bool {
-	_, found := ft[downscalerNamespace]
-	return found
-}
-
-func set(namespaces []string, fn func(namespace string) (string, struct{})) filter {
-	result := make(filter, len(namespaces))
-	for i := range namespaces {
-		namespace, empty := fn(namespaces[i])
-		result[namespace] = empty
-	}
-	return result
 }
