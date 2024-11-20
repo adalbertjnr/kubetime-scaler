@@ -3,13 +3,13 @@ package scheduler
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"time"
 
 	downscalergov1alpha1 "github.com/adalbertjnr/downscalerk8s/api/v1alpha1"
 	"github.com/adalbertjnr/downscalerk8s/internal/client"
 	"github.com/adalbertjnr/downscalerk8s/internal/factory"
 	"github.com/adalbertjnr/downscalerk8s/internal/store"
+	"github.com/go-logr/logr"
 	"github.com/robfig/cron/v3"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -25,6 +25,8 @@ type Downscaler struct {
 	client *client.APIClient
 
 	cron *cron.Cron
+
+	log logr.Logger
 
 	getFactory *factory.FactoryScaler
 
@@ -54,8 +56,18 @@ func (dc *Downscaler) Persistence(p *store.Persistence) *Downscaler {
 	return dc
 }
 
+func (dc *Downscaler) Logger(l logr.Logger) *Downscaler {
+	dc.log = l
+	return dc
+}
+
 func (dc *Downscaler) handleDatabase() {
 	if !dc.persistence {
+		return
+	}
+
+	if err := dc.store.Namespace.InitDatabase(context.Background()); err != nil {
+		dc.log.Error(err, "database", "creation error", err)
 		return
 	}
 
@@ -63,11 +75,11 @@ func (dc *Downscaler) handleDatabase() {
 		createNamespace := store.Namespace{Name: namespace}
 
 		if err := dc.store.Namespace.Create(context.Background(), &createNamespace); err != nil {
-			slog.Error("database", "namespace", namespace, "insert error", err)
+			dc.log.Error(err, "database", "namespace", namespace, "insert error", err)
 			continue
 		}
 
-		slog.Info("database", "inserting namespace into table", namespace)
+		dc.log.Info("database", "inserting namespace into table", namespace)
 	}
 }
 
@@ -84,14 +96,14 @@ func (dc *Downscaler) Run() (ctrl.Result, error) {
 }
 
 func (dc *Downscaler) addCronJob(scaleStr string, namespace downscalergov1alpha1.Namespace, replicas int) {
-	expression := buildCronExpression(dc.recurrence(), scaleStr)
+	expression := dc.buildCronExpression(dc.recurrence(), scaleStr)
 	entryID, err := dc.cron.AddFunc(expression, dc.job(namespace, replicas))
 	if err != nil {
-		slog.Error("cron", "scheduling error", err)
+		dc.log.Error(err, "cron", "scheduling error", err)
 		return
 	}
 
-	slog.Info("cron", "assigning new cron entryID", entryID)
+	dc.log.Info("cron", "namespace", namespace, "assigning new cron entryID", entryID)
 }
 
 func (dc *Downscaler) initializeCronTasks() {
@@ -125,7 +137,7 @@ func (dc *Downscaler) notifyCronEntries(ctx context.Context) {
 			return
 		case <-ticker.C:
 			for _, entry := range dc.cron.Entries() {
-				slog.Info("cron", "entryID", entry.ID, "nextRun", entry.Next)
+				dc.log.Info("cron", "entryID", entry.ID, "nextRun", entry.Next)
 			}
 		}
 	}
@@ -151,7 +163,7 @@ func (dc *Downscaler) execute(namespace string, replicas int, overrideResource [
 	for _, resource := range overrideResource {
 		if resourceScaler, created := (*dc.getFactory)[resource]; created {
 			if err := resourceScaler.Run(namespace, replicas); err != nil {
-				slog.Error("job", "resource", resource, "scaling error", err)
+				dc.log.Error(err, "job", "resource", resource, "scaling error", err)
 				return
 			}
 		}
@@ -195,10 +207,10 @@ func (dc *Downscaler) createNewClient() error {
 	return nil
 }
 
-func buildCronExpression(recurrence, timeStr string) string {
+func (dc *Downscaler) buildCronExpression(recurrence, timeStr string) string {
 	t, err := time.Parse("15:04", timeStr)
 	if err != nil {
-		slog.Error("Invalid time format", "timeStr", timeStr, "error", err)
+		dc.log.Error(err, "Invalid time format", "timeStr", timeStr, "error", err)
 		return "0 0 * * *"
 	}
 

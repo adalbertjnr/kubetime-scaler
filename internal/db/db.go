@@ -7,7 +7,7 @@ import (
 )
 
 func MustCreateClient() *sql.DB {
-	db, err := sql.Open("sqlite3", "/data/db")
+	db, err := sql.Open("sqlite", "/home/nonroot/data_db")
 	if err != nil {
 		panic(err)
 	}

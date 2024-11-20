@@ -1,10 +1,9 @@
 package factory
 
 import (
-	"log/slog"
-
 	"github.com/adalbertjnr/downscalerk8s/internal/client"
 	"github.com/adalbertjnr/downscalerk8s/internal/store"
+	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	v2 "k8s.io/api/autoscaling/v2"
 )
@@ -22,6 +21,7 @@ type ResourceScaler interface {
 type ScaleDeployment struct {
 	client      *client.APIClient
 	persistence *store.Persistence
+	logger      logr.Logger
 }
 
 func (sc *ScaleDeployment) Run(namespace string, replicas int) error {
@@ -34,11 +34,11 @@ func (sc *ScaleDeployment) Run(namespace string, replicas int) error {
 		before := *deployment.Spec.Replicas
 
 		if err := sc.client.Patch(replicas, &deployment); err != nil {
-			slog.Error("client", "error patching deployment", err)
+			sc.logger.Error(err, "client", "error patching deployment", err)
 			return err
 		}
 
-		slog.Info("client", "patching deployment", deployment.Name, "namespace", namespace, "before", before, "after", replicas)
+		sc.logger.Info("client", "patching deployment", deployment.Name, "namespace", namespace, "before", before, "after", replicas)
 	}
 
 	return nil
@@ -47,6 +47,7 @@ func (sc *ScaleDeployment) Run(namespace string, replicas int) error {
 type ScaleHPA struct {
 	client      *client.APIClient
 	persistence *store.Persistence
+	logger      logr.Logger
 }
 
 func (sc *ScaleHPA) Run(namespace string, replicas int) error {
@@ -59,11 +60,11 @@ func (sc *ScaleHPA) Run(namespace string, replicas int) error {
 		before := *hpa.Spec.MinReplicas
 
 		if err := sc.client.Patch(replicas, &hpa); err != nil {
-			slog.Error("client", "error patching deployment", err)
+			sc.logger.Error(err, "client", "error patching deployment", err)
 			return err
 		}
 
-		slog.Info("client", "patching hpa", hpa.Name, "namespace", namespace, "before", before, "after", replicas)
+		sc.logger.Info("client", "patching hpa", hpa.Name, "namespace", namespace, "before", before, "after", replicas)
 	}
 
 	return nil
@@ -72,6 +73,7 @@ func (sc *ScaleHPA) Run(namespace string, replicas int) error {
 type ScaleStatefulSet struct {
 	client      *client.APIClient
 	persistence *store.Persistence
+	logger      logr.Logger
 }
 
 func (sc *ScaleStatefulSet) Run(namespace string, replicas int) error {
@@ -84,11 +86,11 @@ func (sc *ScaleStatefulSet) Run(namespace string, replicas int) error {
 		before := *statefulSet.Spec.Replicas
 
 		if err := sc.client.Patch(replicas, &statefulSet); err != nil {
-			slog.Error("client", "error patching deployment", err)
+			sc.logger.Error(err, "client", "error patching deployment", err)
 			return err
 		}
 
-		slog.Info("client", "patching statefulSet", statefulSet.Name, "namespace", namespace, "before", before, "after", replicas)
+		sc.logger.Info("client", "patching statefulSet", statefulSet.Name, "namespace", namespace, "before", before, "after", replicas)
 	}
 
 	return nil
@@ -96,21 +98,24 @@ func (sc *ScaleStatefulSet) Run(namespace string, replicas int) error {
 
 type FactoryScaler map[string]ResourceScaler
 
-func NewScalerFactory(persistence *store.Persistence, client *client.APIClient) *FactoryScaler {
+func NewScalerFactory(persistence *store.Persistence, client *client.APIClient, logger logr.Logger) *FactoryScaler {
 	return &FactoryScaler{
 		DEPLOYMENT: &ScaleDeployment{
 			persistence: persistence,
 			client:      client,
+			logger:      logger,
 		},
 
 		STATEFULSET: &ScaleStatefulSet{
 			persistence: persistence,
 			client:      client,
+			logger:      logger,
 		},
 
 		HPA: &ScaleHPA{
 			persistence: persistence,
 			client:      client,
+			logger:      logger,
 		},
 	}
 }

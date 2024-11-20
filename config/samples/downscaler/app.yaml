@@ -6,7 +6,7 @@ metadata:
 spec:
   config:
     cronLoggerInterval: 30
-    persistence: false
+    persistence: true
   schedule:
     timeZone: "America/Sao_Paulo"
     recurrence: "@daily"
@@ -21,19 +21,19 @@ spec:
           namespaces:
           - "app"
           - "app2"
-          upscaleTime: "23:50"
-          downscaleTime: "23:49"
+          upscaleTime: "17:11"
+          downscaleTime: "17:09"
           overrideScaling: ["deployments", "statefulset", "hpa"]
 
         - name: "Rule to downscale deployments from requirement B"
           namespaces:
           - "app3"
           - "app4"
-          upscaleTime: "23:50"
-          downscaleTime: "23:49"
+          upscaleTime: "17:11"
+          downscaleTime: "17:09"
 
         - name: "Rule to downscale statefulset from requirement C"
           namespaces:
           - "app10"
-          upscaleTime: "23:50"
-          downscaleTime: "23:49"
+          upscaleTime: "17:11"
+          downscaleTime: "17:09"

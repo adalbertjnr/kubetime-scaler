@@ -2,9 +2,9 @@ package client
 
 import (
 	"context"
+	"fmt"
 
 	downscalergov1alpha1 "github.com/adalbertjnr/downscalerk8s/api/v1alpha1"
-	"github.com/adalbertjnr/downscalerk8s/internal/pkgerrors"
 	appsv1 "k8s.io/api/apps/v1"
 	v2 "k8s.io/api/autoscaling/v2"
 	v1 "k8s.io/api/core/v1"
@@ -50,7 +50,7 @@ func (c *APIClient) Patch(replicas int, object any) error {
 		value.Spec.MinReplicas = &replicaCount
 		return c.Client.Patch(c.ctx, value, patchOpts)
 	default:
-		return pkgerrors.ErrPatchingTypeNotFound
+		return fmt.Errorf("resource type for patching found")
 	}
 }
 
@@ -65,7 +65,7 @@ func (c *APIClient) Get(namespace string, resource any) error {
 	case *v2.HorizontalPodAutoscalerList:
 		return c.Client.List(c.ctx, value, listOpts)
 	default:
-		return pkgerrors.ErrListTypeNotFound
+		return fmt.Errorf("the resource type was not found for get")
 	}
 }
 

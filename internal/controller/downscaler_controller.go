@@ -18,7 +18,6 @@ package controller
 
 import (
 	"context"
-	"log/slog"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -26,12 +25,14 @@ import (
 
 	downscalergov1alpha1 "github.com/adalbertjnr/downscalerk8s/api/v1alpha1"
 	"github.com/adalbertjnr/downscalerk8s/internal/scheduler"
+	"github.com/go-logr/logr"
 )
 
 // DownscalerReconciler reconciles a Downscaler object
 type DownscalerReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	Logger logr.Logger
 
 	DownscalerScheduler *scheduler.Downscaler
 }
@@ -54,11 +55,11 @@ func (r *DownscalerReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	var app downscalergov1alpha1.Downscaler
 	if err := r.Get(ctx, req.NamespacedName, &app); err != nil {
-		slog.Error("reconcile", "error", err)
+		ctrl.Log.Error(err, "reconcile", "error", err)
 		return ctrl.Result{}, err
 	}
 
-	slog.Info("reconcile", "kind", app.Kind, "name", app.Name, "status", "updated")
+	r.Logger.Info("reconcile", "kind", app.Kind, "name", app.Name, "status", "updated")
 
 	if valid := dc.Add(ctx, app).
 		Validate(); !valid {

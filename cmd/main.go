@@ -19,7 +19,6 @@ package main
 import (
 	"crypto/tls"
 	"flag"
-	"log/slog"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -39,9 +38,9 @@ import (
 	"github.com/adalbertjnr/downscalerk8s/internal/client"
 	"github.com/adalbertjnr/downscalerk8s/internal/controller"
 	"github.com/adalbertjnr/downscalerk8s/internal/factory"
-	"github.com/adalbertjnr/downscalerk8s/internal/logger"
 	"github.com/adalbertjnr/downscalerk8s/internal/scheduler"
 	"github.com/adalbertjnr/downscalerk8s/internal/store"
+	"github.com/go-logr/logr"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -73,7 +72,7 @@ func main() {
 		"If set the metrics endpoint is served securely")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
-	flag.BoolVar(&enableDatabase, "enable database", false,
+	flag.BoolVar(&enableDatabase, "database", false,
 		"If set, the program will persist a database store in /data/db, which means the use must persist it using the deployment")
 	opts := zap.Options{
 		Development: true,
@@ -81,7 +80,11 @@ func main() {
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
 
-	// ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+	var logger logr.Logger
+	var storeClient *store.Persistence
+	var scalerFactory *factory.FactoryScaler
+
+	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will
@@ -137,22 +140,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	logger.Initialize(logger.Config{
-		Level:      slog.LevelInfo,
-		OutputJSON: true,
-	})
-
-	logger := logger.GetLogger()
-	slog.SetDefault(logger)
-
-	storeClient := store.New(enableDatabase)
-
-	scalerFactory := factory.NewScalerFactory(storeClient, apiClient)
+	{
+		logger = ctrl.Log.WithValues("controller", "downscaler", "controllerGroup", "downscaler.go")
+		storeClient = store.New(enableDatabase)
+		scalerFactory = factory.NewScalerFactory(storeClient, apiClient, logger)
+	}
 
 	downscalerScheduler := (&scheduler.Downscaler{}).
 		Client(apiClient).
 		Factory(scalerFactory).
-		Persistence(storeClient)
+		Persistence(storeClient).
+		Logger(logger)
 	if err != nil {
 		setupLog.Error(err, "unable to initialize the cron scheduler")
 		os.Exit(1)
@@ -162,6 +160,7 @@ func main() {
 		Client:              mgr.GetClient(),
 		Scheme:              mgr.GetScheme(),
 		DownscalerScheduler: downscalerScheduler,
+		Logger:              logger,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Downscaler")
 		os.Exit(1)

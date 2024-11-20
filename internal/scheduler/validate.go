@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/adalbertjnr/downscalerk8s/api/v1alpha1"
-	"github.com/adalbertjnr/downscalerk8s/internal/pkgerrors"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
@@ -43,12 +42,12 @@ func (s *Downscaler) Validate() bool {
 
 func processScheduleFields(schedule *v1alpha1.Schedule, validationErrors *[]error) {
 	if schedule == nil {
-		err := field.Invalid(field.NewPath(Spec).Child(Schedule), schedule, pkgerrors.ErrNilInclude.Error())
+		err := field.Invalid(field.NewPath(Spec).Child(Schedule), schedule, "")
 		*validationErrors = append(*validationErrors, err)
 		return
 	}
 	if schedule.TimeZone == "" || len(strings.Split(schedule.TimeZone, "/")) == 1 {
-		err := field.Invalid(field.NewPath(Spec).Child(Schedule).Child(TimeZone), schedule.TimeZone, pkgerrors.ErrMalformedTimeZone.Error())
+		err := field.Invalid(field.NewPath(Spec).Child(Schedule).Child(TimeZone), schedule.TimeZone, "")
 		*validationErrors = append(*validationErrors, err)
 	}
 }
@@ -57,19 +56,19 @@ func processDownscalerOptions(options *v1alpha1.DownscalerOptions, validationErr
 	childBase := field.NewPath(Spec).Child(DownscalerOptions)
 
 	if options == nil {
-		err := field.Invalid(childBase, options, pkgerrors.ErrNilInclude.Error())
+		err := field.Invalid(childBase, options, "")
 		*validationErrors = append(*validationErrors, err)
 		return
 	}
 
 	if options.TimeRules == nil {
-		err := field.Invalid(childBase.Child(TimeRules), options.TimeRules, pkgerrors.ErrTimeRulesBlockNotProvided.Error())
+		err := field.Invalid(childBase.Child(TimeRules), options.TimeRules, "")
 		*validationErrors = append(*validationErrors, err)
 		return
 	}
 
 	if options.TimeRules.Rules == nil {
-		err := field.Invalid(childBase.Child(TimeRules).Child(Rules), options.TimeRules.Rules, pkgerrors.ErrRulesNotProvided.Error())
+		err := field.Invalid(childBase.Child(TimeRules).Child(Rules), options.TimeRules.Rules, "")
 		*validationErrors = append(*validationErrors, err)
 		return
 	}
@@ -78,17 +77,17 @@ func processDownscalerOptions(options *v1alpha1.DownscalerOptions, validationErr
 		childRule := childBase.Child(TimeRules).Index(index)
 
 		if len(rule.Namespaces) == 0 {
-			err := field.Invalid(childRule.Child(Namespaces), rule.Namespaces, pkgerrors.ErrEmptyNamespaces.Error())
+			err := field.Invalid(childRule.Child(Namespaces), rule.Namespaces, "")
 			*validationErrors = append(*validationErrors, err)
 		}
 
 		if len(strings.Split(rule.UpscaleTime, ":")) == 1 {
-			err := field.Invalid(childRule.Child(Namespaces).Child(UpscaleTime), rule.UpscaleTime, pkgerrors.ErrMalforedUpscaleTime.Error())
+			err := field.Invalid(childRule.Child(Namespaces).Child(UpscaleTime), rule.UpscaleTime, "")
 			*validationErrors = append(*validationErrors, err)
 		}
 
 		if len(strings.Split(rule.DownscaleTime, ":")) == 1 {
-			err := field.Invalid(childRule.Child(Namespaces).Child(DownscaleTime), rule.DownscaleTime, pkgerrors.ErrMalforedDownscaleTime.Error())
+			err := field.Invalid(childRule.Child(Namespaces).Child(DownscaleTime), rule.DownscaleTime, "")
 			*validationErrors = append(*validationErrors, err)
 		}
 
