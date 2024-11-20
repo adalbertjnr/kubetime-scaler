@@ -58,6 +58,15 @@ func (ns Namespace) String() string {
 	return string(ns)
 }
 
+func (ns Namespace) Found(collection []Namespace) bool {
+	for i := range collection {
+		if collection[i].String() == ns.String() {
+			return true
+		}
+	}
+	return false
+}
+
 type Rules struct {
 	Name            string      `json:"name"`
 	Namespaces      []Namespace `json:"namespaces"`

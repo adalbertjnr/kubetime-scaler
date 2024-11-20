@@ -1,13 +1,12 @@
 package store
 
-import "database/sql"
+import (
+	"context"
+	"database/sql"
+)
 
 type NamespaceStorer interface {
-	Create(*Namespace) error
-	Update(*Namespace) error
-
-	Get(string) (*Namespace, error)
-	Delete(string) error
+	Create(context.Context, *Namespace) error
 }
 
 type NamespaceStore struct {
@@ -15,25 +14,27 @@ type NamespaceStore struct {
 }
 
 type Namespace struct {
-	ID           int    `json:"id"`
-	Name         string `json:"name"`
-	DeploymentID int    `json:"deploymentID"`
+	ID        int    `json:"id"`
+	Name      string `json:"name"`
+	CreatedAt string `json:"createdAt"`
 }
 
 func NewNamespaceStore(db *sql.DB) *NamespaceStore { return &NamespaceStore{db: db} }
 
-func (d *NamespaceStore) Create(namespace *Namespace) error {
-	return nil
-}
+func (ns *NamespaceStore) Create(ctx context.Context, namespace *Namespace) error {
+	query := `
+		insert into namespaces (name)
+		values ($1)
+		returning id, created_at
+		`
 
-func (d *NamespaceStore) Get(namespace string) (*Namespace, error) {
-	return nil, nil
-}
+	return ns.db.QueryRowContext(
+		ctx,
+		query,
+		namespace.Name,
+	).Scan(
+		&namespace.ID,
+		&namespace.CreatedAt,
+	)
 
-func (d *NamespaceStore) Update(namespace *Namespace) error {
-	return nil
-}
-
-func (d *NamespaceStore) Delete(namespace string) error {
-	return nil
 }

@@ -10,7 +10,6 @@ import (
 	"github.com/adalbertjnr/downscalerk8s/internal/client"
 	"github.com/adalbertjnr/downscalerk8s/internal/factory"
 	"github.com/adalbertjnr/downscalerk8s/internal/store"
-	"github.com/go-logr/logr"
 	"github.com/robfig/cron/v3"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -23,11 +22,11 @@ const (
 type Downscaler struct {
 	app downscalergov1alpha1.Downscaler
 
-	log logr.Logger
-
 	client *client.APIClient
 
 	cron *cron.Cron
+
+	getFactory *factory.FactoryScaler
 
 	downscalerNamespace bool
 
@@ -42,6 +41,11 @@ func (dc *Downscaler) Client(c *client.APIClient) *Downscaler {
 	return dc
 }
 
+func (dc *Downscaler) Factory(f *factory.FactoryScaler) *Downscaler {
+	dc.getFactory = f
+	return dc
+}
+
 func (dc *Downscaler) Persistence(p *store.Persistence) *Downscaler {
 	if p != nil {
 		dc.store = p
@@ -50,17 +54,36 @@ func (dc *Downscaler) Persistence(p *store.Persistence) *Downscaler {
 	return dc
 }
 
+func (dc *Downscaler) handleDatabase() {
+	if !dc.persistence {
+		return
+	}
+
+	for _, namespace := range dc.namespaces() {
+		createNamespace := store.Namespace{Name: namespace}
+
+		if err := dc.store.Namespace.Create(context.Background(), &createNamespace); err != nil {
+			slog.Error("database", "namespace", namespace, "insert error", err)
+			continue
+		}
+
+		slog.Info("database", "inserting namespace into table", namespace)
+	}
+}
+
 func (dc *Downscaler) Run() (ctrl.Result, error) {
 	if err := dc.resetState().createNewClient(); err != nil {
 		return ctrl.Result{}, err
 	}
+
+	dc.handleDatabase()
 
 	dc.initializeCronTasks()
 
 	return ctrl.Result{}, nil
 }
 
-func (dc *Downscaler) addCronJob(scaleStr, namespace string, replicas int) {
+func (dc *Downscaler) addCronJob(scaleStr string, namespace downscalergov1alpha1.Namespace, replicas int) {
 	expression := buildCronExpression(dc.recurrence(), scaleStr)
 	entryID, err := dc.cron.AddFunc(expression, dc.job(namespace, replicas))
 	if err != nil {
@@ -68,14 +91,14 @@ func (dc *Downscaler) addCronJob(scaleStr, namespace string, replicas int) {
 		return
 	}
 
-	dc.log.Info("cron", "assigning new cron entryID", entryID)
+	slog.Info("cron", "assigning new cron entryID", entryID)
 }
 
 func (dc *Downscaler) initializeCronTasks() {
 	for _, rule := range dc.rules() {
 		for _, namespace := range rule.Namespaces {
-			dc.addCronJob(rule.UpscaleTime, namespace.String(), upscaleReplicas)
-			dc.addCronJob(rule.DownscaleTime, namespace.String(), downscaleReplicas)
+			dc.addCronJob(rule.UpscaleTime, namespace, upscaleReplicas)
+			dc.addCronJob(rule.DownscaleTime, namespace, downscaleReplicas)
 		}
 	}
 
@@ -102,53 +125,41 @@ func (dc *Downscaler) notifyCronEntries(ctx context.Context) {
 			return
 		case <-ticker.C:
 			for _, entry := range dc.cron.Entries() {
-				dc.log.Info("cron", "entryID", entry.ID, "nextRun", entry.Next)
+				slog.Info("cron", "entryID", entry.ID, "nextRun", entry.Next)
 			}
 		}
 	}
 }
 
-func (dc *Downscaler) job(namespace string, replicas int) func() {
+func (dc *Downscaler) job(namespace downscalergov1alpha1.Namespace, replicas int) func() {
 	return func() {
 		for _, rule := range dc.rules() {
-			if containsNamespace(namespace, rule.Namespaces) {
+			if namespace.Found(rule.Namespaces) {
+
 				overrideResource := rule.OverrideScaling
 				if len(overrideResource) == 0 {
 					overrideResource = dc.resourceScaling()
 				}
 
-				for _, resource := range overrideResource {
-					scaler, err := factory.GetScaler(resource, dc.client, dc.log)
-					if err != nil {
-						slog.Error("job", "select scaling error", err)
-						return
-					}
-
-					if err := scaler.Run(namespace, replicas); err != nil {
-						slog.Error("job", "resource", resource, "scaling error", err)
-					}
-				}
+				dc.execute(namespace.String(), replicas, overrideResource)
 			}
 		}
 	}
 }
 
-func containsNamespace(namespace string, namespaces []downscalergov1alpha1.Namespace) bool {
-	for _, ns := range namespaces {
-		if ns.String() == namespace {
-			return true
+func (dc *Downscaler) execute(namespace string, replicas int, overrideResource []string) {
+	for _, resource := range overrideResource {
+		if resourceScaler, created := (*dc.getFactory)[resource]; created {
+			if err := resourceScaler.Run(namespace, replicas); err != nil {
+				slog.Error("job", "resource", resource, "scaling error", err)
+				return
+			}
 		}
 	}
-	return false
 }
 
 func (s *Downscaler) Add(ctx context.Context, app downscalergov1alpha1.Downscaler) *Downscaler {
 	s.app = app
-	return s
-}
-
-func (s *Downscaler) Logger(log logr.Logger) *Downscaler {
-	s.log = log
 	return s
 }
 
@@ -208,4 +219,15 @@ func (dc *Downscaler) resourceScaling() []string {
 
 func (dc *Downscaler) recurrence() string {
 	return dc.app.Spec.Schedule.Recurrence
+}
+
+func (dc *Downscaler) namespaces() []string {
+	var namespaceList []string
+	for _, rule := range dc.rules() {
+		for _, namespace := range rule.Namespaces {
+			namespaceList = append(namespaceList, string(namespace))
+		}
+	}
+
+	return namespaceList
 }

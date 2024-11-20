@@ -19,6 +19,7 @@ package main
 import (
 	"crypto/tls"
 	"flag"
+	"log/slog"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -37,6 +38,8 @@ import (
 	downscalergov1alpha1 "github.com/adalbertjnr/downscalerk8s/api/v1alpha1"
 	"github.com/adalbertjnr/downscalerk8s/internal/client"
 	"github.com/adalbertjnr/downscalerk8s/internal/controller"
+	"github.com/adalbertjnr/downscalerk8s/internal/factory"
+	"github.com/adalbertjnr/downscalerk8s/internal/logger"
 	"github.com/adalbertjnr/downscalerk8s/internal/scheduler"
 	"github.com/adalbertjnr/downscalerk8s/internal/store"
 	//+kubebuilder:scaffold:imports
@@ -78,7 +81,7 @@ func main() {
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
 
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+	// ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will
@@ -128,21 +131,28 @@ func main() {
 		os.Exit(1)
 	}
 
-	c := client.NewAPIClient(mgr.GetClient())
+	apiClient := client.NewAPIClient(mgr.GetClient())
 	if err != nil {
 		setupLog.Error(err, "unable to initialize the new api client")
 		os.Exit(1)
 	}
 
-	var db *store.Persistence
-	if enableDatabase {
-		db = &store.Persistence{
-			Deployment: store.NewDeploymentStore(nil),
-			Namespace:  store.NewNamespaceStore(nil),
-		}
-	}
+	logger.Initialize(logger.Config{
+		Level:      slog.LevelInfo,
+		OutputJSON: true,
+	})
 
-	downscalerScheduler := (&scheduler.Downscaler{}).Client(c).Persistence(db)
+	logger := logger.GetLogger()
+	slog.SetDefault(logger)
+
+	storeClient := store.New(enableDatabase)
+
+	scalerFactory := factory.NewScalerFactory(storeClient, apiClient)
+
+	downscalerScheduler := (&scheduler.Downscaler{}).
+		Client(apiClient).
+		Factory(scalerFactory).
+		Persistence(storeClient)
 	if err != nil {
 		setupLog.Error(err, "unable to initialize the cron scheduler")
 		os.Exit(1)

@@ -2,11 +2,9 @@ package factory
 
 import (
 	"log/slog"
-	"strings"
 
 	"github.com/adalbertjnr/downscalerk8s/internal/client"
-	"github.com/adalbertjnr/downscalerk8s/internal/pkgerrors"
-	"github.com/go-logr/logr"
+	"github.com/adalbertjnr/downscalerk8s/internal/store"
 	appsv1 "k8s.io/api/apps/v1"
 	v2 "k8s.io/api/autoscaling/v2"
 )
@@ -22,8 +20,8 @@ type ResourceScaler interface {
 }
 
 type ScaleDeployment struct {
-	client *client.APIClient
-	log    logr.Logger
+	client      *client.APIClient
+	persistence *store.Persistence
 }
 
 func (sc *ScaleDeployment) Run(namespace string, replicas int) error {
@@ -40,15 +38,15 @@ func (sc *ScaleDeployment) Run(namespace string, replicas int) error {
 			return err
 		}
 
-		sc.log.Info("client", "patching deployment", deployment.Name, "namespace", namespace, "before", before, "after", replicas)
+		slog.Info("client", "patching deployment", deployment.Name, "namespace", namespace, "before", before, "after", replicas)
 	}
 
 	return nil
 }
 
 type ScaleHPA struct {
-	client *client.APIClient
-	log    logr.Logger
+	client      *client.APIClient
+	persistence *store.Persistence
 }
 
 func (sc *ScaleHPA) Run(namespace string, replicas int) error {
@@ -65,15 +63,15 @@ func (sc *ScaleHPA) Run(namespace string, replicas int) error {
 			return err
 		}
 
-		sc.log.Info("client", "patching hpa", hpa.Name, "namespace", namespace, "before", before, "after", replicas)
+		slog.Info("client", "patching hpa", hpa.Name, "namespace", namespace, "before", before, "after", replicas)
 	}
 
 	return nil
 }
 
 type ScaleStatefulSet struct {
-	client *client.APIClient
-	log    logr.Logger
+	client      *client.APIClient
+	persistence *store.Persistence
 }
 
 func (sc *ScaleStatefulSet) Run(namespace string, replicas int) error {
@@ -90,21 +88,29 @@ func (sc *ScaleStatefulSet) Run(namespace string, replicas int) error {
 			return err
 		}
 
-		sc.log.Info("client", "patching statefulSet", statefulSet.Name, "namespace", namespace, "before", before, "after", replicas)
+		slog.Info("client", "patching statefulSet", statefulSet.Name, "namespace", namespace, "before", before, "after", replicas)
 	}
 
 	return nil
 }
 
-func GetScaler(resourceType string, client *client.APIClient, log logr.Logger) (ResourceScaler, error) {
-	switch strings.ToLower(resourceType) {
-	case DEPLOYMENT:
-		return &ScaleDeployment{client: client, log: log}, nil
-	case STATEFULSET:
-		return &ScaleStatefulSet{client: client, log: log}, nil
-	case HPA:
-		return &ScaleHPA{client: client, log: log}, nil
-	default:
-		return nil, pkgerrors.ErrListTypeNotFound
+type FactoryScaler map[string]ResourceScaler
+
+func NewScalerFactory(persistence *store.Persistence, client *client.APIClient) *FactoryScaler {
+	return &FactoryScaler{
+		DEPLOYMENT: &ScaleDeployment{
+			persistence: persistence,
+			client:      client,
+		},
+
+		STATEFULSET: &ScaleStatefulSet{
+			persistence: persistence,
+			client:      client,
+		},
+
+		HPA: &ScaleHPA{
+			persistence: persistence,
+			client:      client,
+		},
 	}
 }
