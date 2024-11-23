@@ -6,14 +6,12 @@ metadata:
 spec:
   config:
     cronLoggerInterval: 30
-    persistence: true
   schedule:
     timeZone: "America/Sao_Paulo"
     recurrence: "@daily"
   downscalerOptions:
     resourceScaling:
       - deployments
-      - hpa
       - statefulset
     timeRules:
       rules:
@@ -21,19 +19,19 @@ spec:
           namespaces:
           - "app"
           - "app2"
-          upscaleTime: "17:11"
-          downscaleTime: "17:09"
-          overrideScaling: ["deployments", "statefulset", "hpa"]
+          upscaleTime: "17:14"
+          downscaleTime: "17:13"
+          overrideScaling: ["deployments", "statefulset"]
 
         - name: "Rule to downscale deployments from requirement B"
           namespaces:
           - "app3"
           - "app4"
-          upscaleTime: "17:11"
-          downscaleTime: "17:09"
+          upscaleTime: "17:14"
+          downscaleTime: "17:13"
 
         - name: "Rule to downscale statefulset from requirement C"
           namespaces:
           - "app10"
-          upscaleTime: "17:11"
-          downscaleTime: "17:09"
+          upscaleTime: "17:14"
+          downscaleTime: "17:13"

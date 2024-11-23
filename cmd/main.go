@@ -143,7 +143,7 @@ func main() {
 	{
 		logger = ctrl.Log.WithValues("controller", "downscaler", "controllerGroup", "downscaler.go")
 		storeClient = store.New(enableDatabase)
-		scalerFactory = factory.NewScalerFactory(storeClient, apiClient, logger)
+		scalerFactory = factory.NewScalerFactory(apiClient, storeClient, logger)
 	}
 
 	downscalerScheduler := (&scheduler.Downscaler{}).

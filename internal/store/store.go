@@ -3,8 +3,7 @@ package store
 import "github.com/adalbertjnr/downscalerk8s/internal/db"
 
 type Persistence struct {
-	ScaleHistory ScaleHistoryStorer
-	Namespace    NamespaceStorer
+	ScalingOperation ScalingOperationStorer
 }
 
 func New(enableDatabase bool) *Persistence {
@@ -15,8 +14,7 @@ func New(enableDatabase bool) *Persistence {
 	dbClient := db.MustCreateClient()
 
 	persistenceStore := Persistence{
-		ScaleHistory: NewScaleHistoryStore(dbClient),
-		Namespace:    NewNamespaceStore(dbClient),
+		ScalingOperation: NewScalingOperationStore(dbClient),
 	}
 
 	return &persistenceStore

@@ -43,11 +43,8 @@ spec:
                 properties:
                   cronLoggerInterval:
                     type: integer
-                  persistence:
-                    type: boolean
                 required:
                 - cronLoggerInterval
-                - persistence
                 type: object
               downscalerOptions:
                 properties:
