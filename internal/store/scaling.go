@@ -34,8 +34,9 @@ type ScalingOperation struct {
 func (so *ScalingOperationStore) Get(ctx context.Context, scalingObject *ScalingOperation) error {
 	query := `
 		select
-		 id, namespace_name, rule_name_description, resource_name,
-		 resource_type, replicas, created_at_ updated_at
+		 id, rule_name_description, resource_type,
+		 replicas, created_at, updated_at
+		 from scaling_operations
 		 where resource_name = $1 and namespace_name = $2
 	`
 

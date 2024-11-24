@@ -26,7 +26,7 @@ type Downscaler struct {
 
 	getFactory *factory.FactoryScaler
 
-	downscalerNamespace bool
+	cronMapEntries map[cron.EntryID]cronEntries
 
 	store       *store.Persistence
 	persistence bool
@@ -79,7 +79,7 @@ func (dc *Downscaler) Run() (ctrl.Result, error) {
 	return ctrl.Result{}, nil
 }
 
-func (dc *Downscaler) addCronJob(scaleStr string, namespace downscalergov1alpha1.Namespace, defaultScaleReplicas types.ScalingOperation) {
+func (dc *Downscaler) addCronJob(ruleNameDescription, scaleStr string, overrideScaling []string, namespace downscalergov1alpha1.Namespace, defaultScaleReplicas types.ScalingOperation) {
 	expression := dc.buildCronExpression(dc.recurrence(), scaleStr)
 
 	entryID, err := dc.cron.AddFunc(expression, dc.job(namespace, defaultScaleReplicas))
@@ -88,7 +88,9 @@ func (dc *Downscaler) addCronJob(scaleStr string, namespace downscalergov1alpha1
 		return
 	}
 
-	dc.log.Info("cron", "namespace", namespace, "assigning new cron entryID", entryID)
+	dc.cronMapEntries[entryID] = cronEntries{ruleNameDescription: ruleNameDescription, namespace: namespace.String(), overrideReplicas: overrideScaling}
+
+	dc.log.Info("cron", "namespace", namespace, "override_scaling", overrideScaling, "assigning cron entryID", entryID, "rule_description", ruleNameDescription)
 }
 
 func (dc *Downscaler) job(namespace downscalergov1alpha1.Namespace, defaultScaleReplicas types.ScalingOperation) func() {
@@ -101,28 +103,41 @@ func (dc *Downscaler) job(namespace downscalergov1alpha1.Namespace, defaultScale
 					overrideResource = dc.resourceScaling()
 				}
 
-				dc.execute(namespace.String(), defaultScaleReplicas, overrideResource)
+				dc.execute(rule.Name, namespace.String(), defaultScaleReplicas, overrideResource)
 			}
 		}
 	}
 }
 
-func (dc *Downscaler) execute(namespace string, replicas types.ScalingOperation, overrideResource []string) {
+func (dc *Downscaler) execute(ruleName, namespace string, replicas types.ScalingOperation, overrideResource []string) {
 	for _, resource := range overrideResource {
 		if resourceScaler, created := (*dc.getFactory)[resource]; created {
-			if err := resourceScaler.Run(namespace, replicas); err != nil {
+			if err := resourceScaler.Run(ruleName, namespace, replicas); err != nil {
 				dc.log.Error(err, "job", "resource", resource, "scaling error", err)
-				return
 			}
 		}
 	}
+}
+
+type cronEntries struct {
+	ruleNameDescription string
+	namespace           string
+	overrideReplicas    []string
 }
 
 func (dc *Downscaler) initializeCronTasks() {
+	if dc.cronMapEntries == nil {
+		dc.cronMapEntries = make(map[cron.EntryID]cronEntries)
+	} else {
+		for k := range dc.cronMapEntries {
+			delete(dc.cronMapEntries, k)
+		}
+	}
+
 	for _, rule := range dc.rules() {
 		for _, namespace := range rule.Namespaces {
-			dc.addCronJob(rule.UpscaleTime, namespace, types.OperationUpscale)
-			dc.addCronJob(rule.DownscaleTime, namespace, types.OperationDownscale)
+			dc.addCronJob(rule.Name, rule.UpscaleTime, rule.OverrideScaling, namespace, types.OperationUpscale)
+			dc.addCronJob(rule.Name, rule.DownscaleTime, rule.OverrideScaling, namespace, types.OperationDownscale)
 		}
 	}
 
@@ -149,7 +164,9 @@ func (dc *Downscaler) notifyCronEntries(ctx context.Context) {
 			return
 		case <-ticker.C:
 			for _, entry := range dc.cron.Entries() {
-				dc.log.Info("cron", "entryID", entry.ID, "nextRun", entry.Next)
+				if e, found := dc.cronMapEntries[entry.ID]; found {
+					dc.log.Info("cron", "namespace", e.namespace, "override_scaling", e.overrideReplicas, "description", e.ruleNameDescription, "entryID", entry.ID, "nextRun", entry.Next)
+				}
 			}
 		}
 	}
@@ -202,17 +219,6 @@ func (dc *Downscaler) buildCronExpression(recurrence, timeStr string) string {
 	}
 
 	return fmt.Sprintf("%d %d * * %s", t.Minute(), t.Hour(), recurrence)
-}
-
-func (dc *Downscaler) namespaces() []string {
-	var namespaceList []string
-	for _, rule := range dc.rules() {
-		for _, namespace := range rule.Namespaces {
-			namespaceList = append(namespaceList, string(namespace))
-		}
-	}
-
-	return namespaceList
 }
 
 func (dc *Downscaler) rules() []downscalergov1alpha1.Rules {
