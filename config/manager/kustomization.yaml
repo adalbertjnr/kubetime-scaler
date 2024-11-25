@@ -4,5 +4,5 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 images:
 - name: controller
-  newName: public.ecr.aws/v5l8y3e2/downscaler
-  newTag: latest
+  newName: example.com/operatordownscaler
+  newTag: v0.0.1

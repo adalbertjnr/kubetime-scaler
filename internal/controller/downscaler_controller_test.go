@@ -18,7 +18,9 @@ package controller
 
 import (
 	"context"
+	"os"
 
+	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -28,18 +30,28 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	downscalergov1alpha1 "github.com/adalbertjnr/downscalerk8s/api/v1alpha1"
+	"github.com/adalbertjnr/downscalerk8s/internal/client"
+	"github.com/adalbertjnr/downscalerk8s/internal/db"
+	"github.com/adalbertjnr/downscalerk8s/internal/factory"
+	"github.com/adalbertjnr/downscalerk8s/internal/scheduler"
+	"github.com/adalbertjnr/downscalerk8s/internal/store"
+	"github.com/adalbertjnr/downscalerk8s/internal/utils"
 )
 
 var _ = Describe("Downscaler Controller", func() {
 	Context("When reconciling a resource", func() {
-		const resourceName = "test-resource"
+		const (
+			resourceName = "test-resource"
+			namespace    = "default"
+		)
 
 		ctx := context.Background()
 
 		typeNamespacedName := types.NamespacedName{
 			Name:      resourceName,
-			Namespace: "default", // TODO(user):Modify as needed
+			Namespace: namespace,
 		}
+
 		downscaler := &downscalergov1alpha1.Downscaler{}
 
 		BeforeEach(func() {
@@ -47,18 +59,38 @@ var _ = Describe("Downscaler Controller", func() {
 			err := k8sClient.Get(ctx, typeNamespacedName, downscaler)
 			if err != nil && errors.IsNotFound(err) {
 				resource := &downscalergov1alpha1.Downscaler{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "downscaler.go/v1alpha1",
+						Kind:       "Downscaler",
+					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,
-						Namespace: "default",
+						Namespace: namespace,
 					},
-					// TODO(user): Specify other spec details if needed.
+					Spec: downscalergov1alpha1.DownscalerSpec{
+						Config:   downscalergov1alpha1.Config{CronLoggerInterval: 60},
+						Schedule: downscalergov1alpha1.Schedule{TimeZone: "America/Sao_Paulo", Recurrence: "@daily"},
+						DownscalerOptions: downscalergov1alpha1.DownscalerOptions{
+							ResourceScaling: []string{"deployments", "statefulset"},
+							TimeRules: &downscalergov1alpha1.TimeRules{
+								Rules: []downscalergov1alpha1.Rules{
+									{
+										Name:            "Rule to test",
+										Namespaces:      []downscalergov1alpha1.Namespace{"test1", "test2"},
+										DownscaleTime:   "15:30",
+										UpscaleTime:     "15:40",
+										OverrideScaling: []string{"deployments", "statefulset"},
+									},
+								},
+							},
+						},
+					},
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 			}
 		})
 
 		AfterEach(func() {
-			// TODO(user): Cleanup logic after each test, like removing the resource instance.
 			resource := &downscalergov1alpha1.Downscaler{}
 			err := k8sClient.Get(ctx, typeNamespacedName, resource)
 			Expect(err).NotTo(HaveOccurred())
@@ -66,11 +98,27 @@ var _ = Describe("Downscaler Controller", func() {
 			By("Cleanup the specific resource instance Downscaler")
 			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
 		})
+
 		It("should successfully reconcile the resource", func() {
+			apiClient := client.NewAPIClient(k8sClient)
+			dbConfig := db.Config{
+				Driver: utils.LookupString(os.Getenv("DB_DRIVER"), "memory_store"),
+				DSN:    utils.LookupString(os.Getenv("DSN"), ""),
+			}
+			storeClient := store.New(logr.Logger{}, false, dbConfig)
+			scalerFactory := factory.NewScalerFactory(apiClient, storeClient, logr.Logger{})
+
+			downscalerScheduler := (&scheduler.Downscaler{}).
+				Client(apiClient).
+				Factory(scalerFactory).
+				Persistence(storeClient).
+				Logger(logr.Logger{})
+
 			By("Reconciling the created resource")
 			controllerReconciler := &DownscalerReconciler{
-				Client: k8sClient,
-				Scheme: k8sClient.Scheme(),
+				Client:              k8sClient,
+				Scheme:              k8sClient.Scheme(),
+				DownscalerScheduler: downscalerScheduler,
 			}
 
 			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{

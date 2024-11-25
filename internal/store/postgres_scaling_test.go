@@ -16,7 +16,7 @@ import (
 func setPostgresTestDBClient(t *testing.T, connString string) *sql.DB {
 	db, err := sql.Open("postgres", connString)
 	if err != nil {
-		t.Fatalf("failed to connect to in memory db: %v", err)
+		t.Fatalf("failed to connect to postgres db: %v", err)
 	}
 
 	return db
@@ -85,7 +85,7 @@ func TestPostgres(t *testing.T) {
 		firstID := 1
 
 		if err := p.Insert(ctx, scalingObject); err != nil {
-			t.Fatalf("insert sqlite operation failed: %v", err)
+			t.Fatalf("insert postgres operation failed: %v", err)
 		}
 		assert.Equal(t, firstID, scalingObject.ID)
 		assert.NotEmpty(t, scalingObject.CreatedAt)
@@ -101,7 +101,7 @@ func TestPostgres(t *testing.T) {
 
 	t.Run("Update", func(t *testing.T) {
 		if err := p.Update(ctx, updateObject); err != nil {
-			t.Fatalf("update sqlite operation failed: %v", err)
+			t.Fatalf("update postgres operation failed: %v", err)
 		}
 	})
 
@@ -112,7 +112,7 @@ func TestPostgres(t *testing.T) {
 
 	t.Run("Get", func(t *testing.T) {
 		if err := p.Get(ctx, getObject); err != nil {
-			t.Fatalf("get updated object sqlite error: %v", err)
+			t.Fatalf("get updated object postgres error: %v", err)
 		}
 		assert.Equal(t, updateObject.NamespaceName, getObject.NamespaceName)
 		assert.Equal(t, updateObject.ResourceName, getObject.ResourceName)
