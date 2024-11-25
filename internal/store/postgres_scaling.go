@@ -5,33 +5,15 @@ import (
 	"database/sql"
 )
 
-type ScalingOperationStorer interface {
-	Bootstrap(context.Context) error
-	Get(context.Context, *ScalingOperation) error
-	Update(context.Context, *ScalingOperation) error
-	Insert(context.Context, *ScalingOperation) error
-}
-
-type ScalingOperationStore struct {
+type PostgresScalingOperationStore struct {
 	db *sql.DB
 }
 
-func NewScalingOperationStore(db *sql.DB) *ScalingOperationStore {
-	return &ScalingOperationStore{db: db}
+func NewPostgresScalingOperationStore(db *sql.DB) *PostgresScalingOperationStore {
+	return &PostgresScalingOperationStore{db: db}
 }
 
-type ScalingOperation struct {
-	ID                  int    `json:"id"`
-	NamespaceName       string `json:"namespace_name"`
-	RuleNameDescription string `json:"rule_name_description"`
-	ResourceName        string `json:"resource_name"`
-	ResourceType        string `json:"resource_type"`
-	Replicas            int    `json:"replicas"`
-	CreatedAt           string `json:"created_at"`
-	Updated             string `json:"updated"`
-}
-
-func (so *ScalingOperationStore) Get(ctx context.Context, scalingObject *ScalingOperation) error {
+func (so *PostgresScalingOperationStore) Get(ctx context.Context, scalingObject *ScalingOperation) error {
 	query := `
 		select
 		 id, rule_name_description, resource_type,
@@ -51,18 +33,18 @@ func (so *ScalingOperationStore) Get(ctx context.Context, scalingObject *Scaling
 		&scalingObject.ResourceType,
 		&scalingObject.Replicas,
 		&scalingObject.CreatedAt,
-		&scalingObject.Updated,
+		&scalingObject.UpdatedAt,
 	)
 }
 
-func (so *ScalingOperationStore) Bootstrap(ctx context.Context) error {
+func (so *PostgresScalingOperationStore) Bootstrap(ctx context.Context) error {
 	query := `
 		create table if not exists scaling_operations (
 			id serial primary key,
-			namespace_name text not null,
+			namespace_name varchar(50) not null,
 			rule_name_description text,
-			resource_name text not null,
-			resource_type text,
+			resource_name varchar(50) not null,
+			resource_type varchar(50),
 			replicas integer not null,
 			created_at timestamp default current_timestamp,
 			updated_at timestamp default current_timestamp
@@ -77,7 +59,7 @@ func (so *ScalingOperationStore) Bootstrap(ctx context.Context) error {
 	return nil
 }
 
-func (so *ScalingOperationStore) Insert(ctx context.Context, scalingObject *ScalingOperation) error {
+func (so *PostgresScalingOperationStore) Insert(ctx context.Context, scalingObject *ScalingOperation) error {
 	query := `
 		insert into scaling_operations
 		(namespace_name, rule_name_description, resource_name, resource_type, replicas)
@@ -99,7 +81,7 @@ func (so *ScalingOperationStore) Insert(ctx context.Context, scalingObject *Scal
 	)
 }
 
-func (so *ScalingOperationStore) Update(ctx context.Context, scalingObject *ScalingOperation) error {
+func (so *PostgresScalingOperationStore) Update(ctx context.Context, scalingObject *ScalingOperation) error {
 	query := `
 		update scaling_operations
 		set replicas = $2, resource_name = $3, rule_name_description = $4,
@@ -118,7 +100,7 @@ func (so *ScalingOperationStore) Update(ctx context.Context, scalingObject *Scal
 		scalingObject.ResourceType,
 	).Scan(
 		&scalingObject.ID,
-		&scalingObject.Updated,
+		&scalingObject.UpdatedAt,
 	)
 
 }

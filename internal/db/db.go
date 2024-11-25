@@ -7,12 +7,18 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-func MustCreateClient() *sql.DB {
-	db, err := sql.Open("postgres", "postgres://postgres:postgresDownscaler@downscaler.cltniyufoxek.us-east-1.rds.amazonaws.com/downscaler")
-	// db, err := sql.Open("sqlite", "/home/nonroot/data_db")
+type Config struct {
+	Driver string
+	DSN    string
+}
+
+func MustCreateClient(dbDriver string, c Config) *sql.DB {
+	db, err := sql.Open(c.Driver, c.DSN)
 	if err != nil {
 		panic(err)
 	}
+
+	db.SetMaxOpenConns(1)
 
 	if err := db.Ping(); err != nil {
 		panic(err)

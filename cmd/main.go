@@ -37,9 +37,11 @@ import (
 	downscalergov1alpha1 "github.com/adalbertjnr/downscalerk8s/api/v1alpha1"
 	"github.com/adalbertjnr/downscalerk8s/internal/client"
 	"github.com/adalbertjnr/downscalerk8s/internal/controller"
+	"github.com/adalbertjnr/downscalerk8s/internal/db"
 	"github.com/adalbertjnr/downscalerk8s/internal/factory"
 	"github.com/adalbertjnr/downscalerk8s/internal/scheduler"
 	"github.com/adalbertjnr/downscalerk8s/internal/store"
+	"github.com/adalbertjnr/downscalerk8s/internal/utils"
 	"github.com/go-logr/logr"
 	//+kubebuilder:scaffold:imports
 )
@@ -140,9 +142,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	dbConfig := db.Config{
+		Driver: utils.LookupString(os.Getenv("DB_DRIVER"), "memory_store"),
+		DSN:    utils.LookupString(os.Getenv("DSN"), ""),
+	}
+
 	{
 		logger = ctrl.Log.WithValues("controller", "downscaler", "controllerGroup", "downscaler.go")
-		storeClient = store.New(enableDatabase)
+		storeClient = store.New(logger, enableDatabase, dbConfig)
 		scalerFactory = factory.NewScalerFactory(apiClient, storeClient, logger)
 	}
 

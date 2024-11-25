@@ -19,19 +19,19 @@ spec:
           namespaces:
           - "app"
           - "app2"
-          upscaleTime: "08:45"
-          downscaleTime: "08:44"
+          upscaleTime: "16:33"
+          downscaleTime: "16:30"
           overrideScaling: ["deployments", "statefulset"]
 
         - name: "Rule to downscale deployments from requirement B"
           namespaces:
           - "app3"
           - "app4"
-          upscaleTime: "08:45"
-          downscaleTime: "08:44"
+          upscaleTime: "16:33"
+          downscaleTime: "16:30"
 
         - name: "Rule to downscale statefulset from requirement C"
           namespaces:
           - "app10"
-          upscaleTime: "08:45"
-          downscaleTime: "08:44"
+          upscaleTime: "16:33"
+          downscaleTime: "16:30"

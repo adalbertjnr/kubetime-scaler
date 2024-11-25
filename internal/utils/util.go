@@ -11,3 +11,11 @@ func GetNamespace() (string, error) {
 	}
 	return string(namespace), nil
 }
+
+func LookupString(value, fallback string) string {
+	if value != "" {
+		return value
+	}
+
+	return fallback
+}
