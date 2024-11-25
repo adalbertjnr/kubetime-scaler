@@ -4,13 +4,17 @@ import (
 	"context"
 	"database/sql"
 	"testing"
+	"time"
 
 	"github.com/adalbertjnr/downscalerk8s/internal/store"
 	"github.com/stretchr/testify/assert"
+	"github.com/testcontainers/testcontainers-go"
+	"github.com/testcontainers/testcontainers-go/modules/postgres"
+	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-func setSqliteTestDBClient(t *testing.T) *sql.DB {
-	db, err := sql.Open("sqlite", ":memory:")
+func setPostgresTestDBClient(t *testing.T, connString string) *sql.DB {
+	db, err := sql.Open("postgres", connString)
 	if err != nil {
 		t.Fatalf("failed to connect to in memory db: %v", err)
 	}
@@ -18,12 +22,50 @@ func setSqliteTestDBClient(t *testing.T) *sql.DB {
 	return db
 }
 
-func TestScalingOperationLifecycle(t *testing.T) {
-	db := setSqliteTestDBClient(t)
+func TestPostgres(t *testing.T) {
+	ctx := context.Background()
+
+	const (
+		postgresCredentials = "postgres"
+		ctrImage            = "postgres:14.15-alpine3.20"
+	)
+
+	ctr, err := postgres.Run(ctx,
+		ctrImage,
+		postgres.WithDatabase(postgresCredentials),
+		postgres.WithUsername(postgresCredentials),
+		postgres.WithPassword(postgresCredentials),
+		testcontainers.WithHostPortAccess(31555),
+		testcontainers.WithWaitStrategy(
+			wait.ForLog("database system is ready to accept connections").
+				WithOccurrence(1).
+				WithStartupTimeout(5*time.Second),
+			wait.ForExposedPort(),
+		),
+	)
+
+	defer func() {
+		if err := ctr.Terminate(ctx); err != nil {
+			t.Log("error terminating the container: ", err)
+		}
+	}()
+
+	if err != nil {
+		t.Fatalf("unexpected error while initializing db container: %v", err)
+	}
+
+	conn, err := ctr.ConnectionString(ctx, "sslmode=disable")
+	if err != nil {
+		t.Fatalf("error fetching container connection string: %v", err)
+	}
+
+	db := setPostgresTestDBClient(t, conn)
+	if err := db.Ping(); err != nil {
+		t.Fatalf("database ping fail: %v", err)
+	}
 	defer db.Close()
 
-	p := store.NewSqliteScalingOperationStore(db)
-	ctx := context.Background()
+	p := store.NewPostgresScalingOperationStore(db)
 
 	t.Run("Bootstrap", func(t *testing.T) {
 		if err := p.Bootstrap(ctx); err != nil {
@@ -78,4 +120,5 @@ func TestScalingOperationLifecycle(t *testing.T) {
 		assert.Equal(t, updateObject.ResourceType, getObject.ResourceType)
 		assert.Equal(t, updateObject.UpdatedAt, getObject.UpdatedAt)
 	})
+
 }
