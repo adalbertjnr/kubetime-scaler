@@ -102,7 +102,8 @@ func (so *ScalingOperationStore) Insert(ctx context.Context, scalingObject *Scal
 func (so *ScalingOperationStore) Update(ctx context.Context, scalingObject *ScalingOperation) error {
 	query := `
 		update scaling_operations
-		set replicas = $2, updated_at = now()
+		set replicas = $2, resource_name = $3, rule_name_description = $4,
+		resource_type = $5, updated_at = now()
 		where namespace_name = $1 and resource_name = $3
 		returning id, updated_at
 	`
@@ -113,6 +114,8 @@ func (so *ScalingOperationStore) Update(ctx context.Context, scalingObject *Scal
 		scalingObject.NamespaceName,
 		scalingObject.Replicas,
 		scalingObject.ResourceName,
+		scalingObject.RuleNameDescription,
+		scalingObject.ResourceType,
 	).Scan(
 		&scalingObject.ID,
 		&scalingObject.Updated,

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	downscalergov1alpha1 "github.com/adalbertjnr/downscalerk8s/api/v1alpha1"
+	"github.com/adalbertjnr/downscalerk8s/internal/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	v2 "k8s.io/api/autoscaling/v2"
 	v1 "k8s.io/api/core/v1"
@@ -69,10 +70,15 @@ func (c *APIClient) Get(namespace string, resource any) error {
 	}
 }
 
-func (c *APIClient) GetDownscaler() (downscaler downscalergov1alpha1.Downscaler, err error) {
+func (c *APIClient) GetDownscaler(downscalerObject downscalergov1alpha1.Downscaler) (downscaler downscalergov1alpha1.Downscaler, err error) {
+	namespace, err := utils.GetNamespace()
+	if err != nil {
+		namespace = "downscaler"
+	}
+
 	if err := c.Client.Get(context.Background(), types.NamespacedName{
-		Name:      "downscaler",
-		Namespace: "downscaler",
+		Name:      downscalerObject.Name,
+		Namespace: namespace,
 	}, &downscaler); err != nil {
 		return downscaler, err
 	}

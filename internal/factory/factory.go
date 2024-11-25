@@ -117,7 +117,13 @@ func (sc *ScaleDeployment) Run(RuleNameDescription, objectNamespace string, oper
 			return err
 		}
 
-		sc.logger.Info("client", "patching deployment", deployment.Name, "namespace", objectNamespace, "before", currentObjectReplicas, "after", defaultScalingObjectValues.Replicas, "object", defaultScalingObjectValues)
+		sc.logger.Info("client",
+			"patching deployment", deployment.Name,
+			"namespace", objectNamespace,
+			"before", currentObjectReplicas,
+			"after", defaultScalingObjectValues.Replicas,
+			"object", defaultScalingObjectValues,
+		)
 	}
 
 	return nil
@@ -180,7 +186,13 @@ func (sc *ScaleStatefulSet) Run(ruleNameDescription, objectNamespace string, ope
 			return err
 		}
 
-		sc.logger.Info("client", "patching statefulSet", statefulSet.Name, "namespace", objectNamespace, "before", currentObjectReplicas, "after", defaultScalingObjectValues.Replicas, "object", defaultScalingObjectValues)
+		sc.logger.Info("client",
+			"patching statefulSet", statefulSet.Name,
+			"namespace", objectNamespace,
+			"before", currentObjectReplicas,
+			"after", defaultScalingObjectValues.Replicas,
+			"object", defaultScalingObjectValues,
+		)
 	}
 
 	return nil

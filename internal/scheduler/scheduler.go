@@ -26,7 +26,7 @@ type Downscaler struct {
 
 	getFactory *factory.FactoryScaler
 
-	cronMapEntries map[cron.EntryID]cronEntries
+	cronEntriesMapping map[cron.EntryID]cronEntries
 
 	store       *store.Persistence
 	persistence bool
@@ -88,9 +88,18 @@ func (dc *Downscaler) addCronJob(ruleNameDescription, scaleStr string, overrideS
 		return
 	}
 
-	dc.cronMapEntries[entryID] = cronEntries{ruleNameDescription: ruleNameDescription, namespace: namespace.String(), overrideReplicas: overrideScaling}
+	dc.cronEntriesMapping[entryID] = cronEntries{
+		ruleNameDescription: ruleNameDescription,
+		namespace:           namespace.String(),
+		overrideReplicas:    overrideScaling,
+	}
 
-	dc.log.Info("cron", "namespace", namespace, "override_scaling", overrideScaling, "assigning cron entryID", entryID, "rule_description", ruleNameDescription)
+	dc.log.Info("cron",
+		"namespace", namespace,
+		"override_scaling", overrideScaling,
+		"assigning cron entryID", entryID,
+		"rule_description", ruleNameDescription,
+	)
 }
 
 func (dc *Downscaler) job(namespace downscalergov1alpha1.Namespace, defaultScaleReplicas types.ScalingOperation) func() {
@@ -126,11 +135,11 @@ type cronEntries struct {
 }
 
 func (dc *Downscaler) initializeCronTasks() {
-	if dc.cronMapEntries == nil {
-		dc.cronMapEntries = make(map[cron.EntryID]cronEntries)
+	if dc.cronEntriesMapping == nil {
+		dc.cronEntriesMapping = make(map[cron.EntryID]cronEntries)
 	} else {
-		for k := range dc.cronMapEntries {
-			delete(dc.cronMapEntries, k)
+		for k := range dc.cronEntriesMapping {
+			delete(dc.cronEntriesMapping, k)
 		}
 	}
 
@@ -164,8 +173,14 @@ func (dc *Downscaler) notifyCronEntries(ctx context.Context) {
 			return
 		case <-ticker.C:
 			for _, entry := range dc.cron.Entries() {
-				if e, found := dc.cronMapEntries[entry.ID]; found {
-					dc.log.Info("cron", "namespace", e.namespace, "override_scaling", e.overrideReplicas, "description", e.ruleNameDescription, "entryID", entry.ID, "nextRun", entry.Next)
+				if e, found := dc.cronEntriesMapping[entry.ID]; found {
+					dc.log.Info("cron",
+						"namespace", e.namespace,
+						"override_scaling", e.overrideReplicas,
+						"description", e.ruleNameDescription,
+						"entryID", entry.ID,
+						"nextRun", entry.Next,
+					)
 				}
 			}
 		}
@@ -190,7 +205,7 @@ func (dc *Downscaler) resetState() *Downscaler {
 
 func (dc *Downscaler) createNewClient() error {
 	if dc.cron == nil {
-		downscaler, err := dc.client.GetDownscaler()
+		downscaler, err := dc.client.GetDownscaler(dc.app)
 		if err != nil {
 			return fmt.Errorf("error getting downscaler object: %v", err)
 		}
