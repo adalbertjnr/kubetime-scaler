@@ -43,35 +43,47 @@ spec:
                 properties:
                   cronLoggerInterval:
                     type: integer
+                required:
+                - cronLoggerInterval
                 type: object
-              namespacesRules:
+              downscalerOptions:
                 properties:
-                  exclude:
+                  resourceScaling:
+                    items:
+                      type: string
+                    type: array
+                  timeRules:
                     properties:
-                      namespaces:
+                      rules:
                         items:
-                          type: string
+                          properties:
+                            downscaleTime:
+                              type: string
+                            name:
+                              type: string
+                            namespaces:
+                              items:
+                                type: string
+                              type: array
+                            overrideScaling:
+                              items:
+                                type: string
+                              type: array
+                            upscaleTime:
+                              type: string
+                          required:
+                          - downscaleTime
+                          - name
+                          - namespaces
+                          - upscaleTime
+                          type: object
                         type: array
+                    required:
+                    - rules
                     type: object
-                  include:
-                    properties:
-                      withRulesByNamespaces:
-                        properties:
-                          rules:
-                            items:
-                              properties:
-                                downscaleTime:
-                                  type: string
-                                namespaces:
-                                  items:
-                                    type: string
-                                  type: array
-                                upscaleTime:
-                                  type: string
-                              type: object
-                            type: array
-                        type: object
-                    type: object
+                required:
+                - resourceScaling
+                - timeRules
                 type: object
               schedule:
                 properties:
@@ -79,10 +91,13 @@ spec:
                     type: string
                   timeZone:
                     type: string
+                required:
+                - recurrence
+                - timeZone
                 type: object
             required:
             - config
-            - namespacesRules
+            - downscalerOptions
             - schedule
             type: object
           status:

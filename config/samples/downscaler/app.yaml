@@ -5,20 +5,33 @@ metadata:
   namespace: downscaler
 spec:
   config:
-    cronLoggerInterval: 10 
+    cronLoggerInterval: 60
   schedule:
     timeZone: "America/Sao_Paulo"
-    recurrence: "MON-SAT"
-  namespacesRules:
-    exclude:
-      namespaces:
-        - "namespace1"
-        - "namespace2"
-        - "namespace3"
-    include:
-      withRulesByNamespaces:
-        rules:
-          - namespaces:
-              - "app"
-            upscaleTime: "15:40"
-            downscaleTime: "15:39"
+    recurrence: "@daily"
+  downscalerOptions:
+    resourceScaling:
+      - deployments
+      - statefulset
+    timeRules:
+      rules:
+        - name: "Rule to downscale deployments from requirement A"
+          namespaces:
+          - "app"
+          - "app2"
+          upscaleTime: "16:33"
+          downscaleTime: "16:30"
+          overrideScaling: ["deployments", "statefulset"]
+
+        - name: "Rule to downscale deployments from requirement B"
+          namespaces:
+          - "app3"
+          - "app4"
+          upscaleTime: "16:33"
+          downscaleTime: "16:30"
+
+        - name: "Rule to downscale statefulset from requirement C"
+          namespaces:
+          - "app10"
+          upscaleTime: "16:33"
+          downscaleTime: "16:30"

@@ -2,9 +2,13 @@ package client
 
 import (
 	"context"
+	"fmt"
 
-	downscalergov1alpha1 "github.com/adalbertjnr/downscaler-operator/api/v1alpha1"
+	downscalergov1alpha1 "github.com/adalbertjnr/downscalerk8s/api/v1alpha1"
+	"github.com/adalbertjnr/downscalerk8s/internal/utils"
 	appsv1 "k8s.io/api/apps/v1"
+	v2 "k8s.io/api/autoscaling/v2"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -22,47 +26,59 @@ func NewAPIClient(c client.Client) *APIClient {
 	}
 }
 
-func (c *APIClient) GetDeployment(name, namespace string) (*appsv1.Deployment, error) {
-	var deployment appsv1.Deployment
+func (c *APIClient) GetNamespaces() (*v1.NamespaceList, error) {
+	var namespaces v1.NamespaceList
 
-	clientObjectKey := client.ObjectKey{
-		Name:      name,
-		Namespace: namespace,
-	}
-
-	if err := c.Client.Get(c.ctx, clientObjectKey, &deployment); err != nil {
+	if err := c.Client.List(c.ctx, &namespaces); err != nil {
 		return nil, err
 	}
 
-	return &deployment, nil
+	return &namespaces, nil
 }
 
-func (c *APIClient) GetDeployments(namespace string) (*appsv1.DeploymentList, error) {
-	var deploymentList appsv1.DeploymentList
+func (c *APIClient) Patch(replicas int, object any) error {
+	patchOpts := client.Merge
+	replicaCount := int32(replicas)
 
+	switch value := object.(type) {
+	case *appsv1.Deployment:
+		value.Spec.Replicas = &replicaCount
+		return c.Client.Patch(c.ctx, value, patchOpts)
+	case *appsv1.StatefulSet:
+		value.Spec.Replicas = &replicaCount
+		return c.Client.Patch(c.ctx, value, patchOpts)
+	case *v2.HorizontalPodAutoscaler:
+		value.Spec.MinReplicas = &replicaCount
+		return c.Client.Patch(c.ctx, value, patchOpts)
+	default:
+		return fmt.Errorf("resource type for patching found")
+	}
+}
+
+func (c *APIClient) Get(namespace string, resource any) error {
 	listOpts := &client.ListOptions{Namespace: namespace}
 
-	if err := c.Client.List(c.ctx, &deploymentList, listOpts); err != nil {
-		return nil, err
+	switch value := resource.(type) {
+	case *appsv1.DeploymentList:
+		return c.Client.List(c.ctx, value, listOpts)
+	case *appsv1.StatefulSetList:
+		return c.Client.List(c.ctx, value, listOpts)
+	case *v2.HorizontalPodAutoscalerList:
+		return c.Client.List(c.ctx, value, listOpts)
+	default:
+		return fmt.Errorf("the resource type was not found for get")
+	}
+}
+
+func (c *APIClient) GetDownscaler(downscalerObject downscalergov1alpha1.Downscaler) (downscaler downscalergov1alpha1.Downscaler, err error) {
+	namespace, err := utils.GetNamespace()
+	if err != nil {
+		namespace = "downscaler"
 	}
 
-	return &deploymentList, nil
-}
-
-func (c *APIClient) PatchDeployment(replicas int, deployment *appsv1.Deployment) error {
-
-	patchOpts := client.Merge
-
-	r := int32(replicas)
-	deployment.Spec.Replicas = &r
-
-	return c.Client.Patch(c.ctx, deployment, patchOpts)
-}
-
-func (c *APIClient) GetDownscaler() (downscaler downscalergov1alpha1.Downscaler, err error) {
 	if err := c.Client.Get(context.Background(), types.NamespacedName{
-		Name:      "downscaler",
-		Namespace: "downscaler",
+		Name:      downscalerObject.Name,
+		Namespace: namespace,
 	}, &downscaler); err != nil {
 		return downscaler, err
 	}

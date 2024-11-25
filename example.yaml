@@ -4,29 +4,30 @@ metadata:
   name: downscaler
   namespace: downscaler
 spec:
+  config:
+    cronLoggerInterval: 10
+    persistence: false
   schedule:
     timeZone: "America/Sao_Paulo"
-    recurrence: "MON-FRI"
-  namespacesRules:
-    exclude:
-      namespaces:
-        - "namespace1"
-        - "namespace2"
-        - "namespace3"
-    include:
-      withRulesByNamespaces:
-        rules:
-          - namespaces:
-              - "namespace5"
-              - "namespace6"
-            upscaleTime: "05:00"
-            downscaleTime: "22:00"
-          - namespaces:
-              - "namespace7"
-              - "namespace8"
-            upscaleTime: "06:00"
-            downscaleTime: "21:00"
-          - namespaces:
-              - "any"
-            upscaleTime: "04:30"
-            downscaleTime: "23:00"
+    recurrence: "@daily"
+  downscalerOptions:
+    resourceScaling:
+      - deployments
+      - hpa
+      - statefulset
+    timeRules:
+      rules:
+        - name: "Rule to downscale deployments from requirement A"
+          namespaces:
+          - "app"
+          - "app2"
+          upscaleTime: "15:23"
+          downscaleTime: "15:25"
+          overrideScaling: ["deployments"]
+
+        - name: "Rule to downscale deployments from requirement B"
+          namespaces:
+          - "app3"
+          - "app4"
+          upscaleTime: "15:23"
+          downscaleTime: "15:25"

@@ -17,12 +17,14 @@ rules:
   - patch
   - update
   - watch
+
 - apiGroups:
   - downscaler.go
   resources:
   - downscalers/finalizers
   verbs:
   - update
+
 - apiGroups:
   - downscaler.go
   resources:
@@ -31,11 +33,23 @@ rules:
   - get
   - patch
   - update
+
 - apiGroups:
   - apps
   resources:
   - deployments
   - deployments/scale
+  - statefulsets
+  verbs:
+  - get
+  - patch
+  - list
+  - watch
+
+- apiGroups:
+  - autoscaling
+  resources:
+  - horizontalpodautoscalers
   verbs:
   - get
   - patch

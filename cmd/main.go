@@ -34,10 +34,15 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	downscalergov1alpha1 "github.com/adalbertjnr/downscaler-operator/api/v1alpha1"
-	"github.com/adalbertjnr/downscaler-operator/internal/client"
-	"github.com/adalbertjnr/downscaler-operator/internal/controller"
-	"github.com/adalbertjnr/downscaler-operator/internal/scheduler"
+	downscalergov1alpha1 "github.com/adalbertjnr/downscalerk8s/api/v1alpha1"
+	"github.com/adalbertjnr/downscalerk8s/internal/client"
+	"github.com/adalbertjnr/downscalerk8s/internal/controller"
+	"github.com/adalbertjnr/downscalerk8s/internal/db"
+	"github.com/adalbertjnr/downscalerk8s/internal/factory"
+	"github.com/adalbertjnr/downscalerk8s/internal/scheduler"
+	"github.com/adalbertjnr/downscalerk8s/internal/store"
+	"github.com/adalbertjnr/downscalerk8s/internal/utils"
+	"github.com/go-logr/logr"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -59,6 +64,7 @@ func main() {
 	var probeAddr string
 	var secureMetrics bool
 	var enableHTTP2 bool
+	var enableDatabase bool
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -68,11 +74,17 @@ func main() {
 		"If set the metrics endpoint is served securely")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
+	flag.BoolVar(&enableDatabase, "database", false,
+		"If set, the program will persist a database store in /data/db, which means the use must persist it using the deployment")
 	opts := zap.Options{
 		Development: true,
 	}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
+
+	var logger logr.Logger
+	var storeClient *store.Persistence
+	var scalerFactory *factory.FactoryScaler
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
@@ -124,13 +136,28 @@ func main() {
 		os.Exit(1)
 	}
 
-	c := client.NewAPIClient(mgr.GetClient())
+	apiClient := client.NewAPIClient(mgr.GetClient())
 	if err != nil {
 		setupLog.Error(err, "unable to initialize the new api client")
 		os.Exit(1)
 	}
 
-	downscalerScheduler := (&scheduler.Downscaler{}).Client(c)
+	dbConfig := db.Config{
+		Driver: utils.LookupString(os.Getenv("DB_DRIVER"), "memory_store"),
+		DSN:    utils.LookupString(os.Getenv("DSN"), ""),
+	}
+
+	{
+		logger = ctrl.Log.WithValues("controller", "downscaler", "controllerGroup", "downscaler.go")
+		storeClient = store.New(logger, enableDatabase, dbConfig)
+		scalerFactory = factory.NewScalerFactory(apiClient, storeClient, logger)
+	}
+
+	downscalerScheduler := (&scheduler.Downscaler{}).
+		Client(apiClient).
+		Factory(scalerFactory).
+		Persistence(storeClient).
+		Logger(logger)
 	if err != nil {
 		setupLog.Error(err, "unable to initialize the cron scheduler")
 		os.Exit(1)
@@ -140,6 +167,7 @@ func main() {
 		Client:              mgr.GetClient(),
 		Scheme:              mgr.GetScheme(),
 		DownscalerScheduler: downscalerScheduler,
+		Logger:              logger,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Downscaler")
 		os.Exit(1)

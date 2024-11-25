@@ -27,7 +27,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	downscalergov1alpha1 "github.com/adalbertjnr/downscaler-operator/api/v1alpha1"
+	downscalergov1alpha1 "github.com/adalbertjnr/downscalerk8s/api/v1alpha1"
 )
 
 var _ = Describe("Downscaler Controller", func() {
