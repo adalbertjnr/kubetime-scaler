@@ -1,114 +1,133 @@
-# operatordownscaler
-// TODO(user): Add simple overview of use/purpose
+# operatordownscaler - very experimental
+
+Project for downscale kubernetes deployments/statefulsets with time rules by namespaces
 
 ## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
 
-## Getting Started
+The idea is to downscale development/staging environments after working hours to reduce waste. Very handy with karpenter.
+The project can be used with postgres, sqlite or memory.
 
-### Prerequisites
-- go version v1.21.0+
-- docker version 17.03+.
-- kubectl version v1.11.3+.
-- Access to a Kubernetes v1.11.3+ cluster.
+- **Memory**: It will always downscale to 0 and upscale to 1 (If managed with argocd the argo could handle the correct amount of replicas)
+- **Postgres**: It will always downscale to 0 and upscale to the last seen replicas before the downscale occurs.
+- **Sqlite**: It will always downscale to 0 and upscale to the last seen replicas before the downscale occurs. The difference is the database the sqlite creates must be persisted, otherwise it will be removed when the pod dies.
 
-### To Deploy on the cluster
-**Build and push your image to the location specified by `IMG`:**
+## Getting started - Yaml example
 
-```sh
-make docker-build docker-push IMG=<some-registry>/operatordownscaler:tag
+**cronLoggerInterval:** It will print the next cronjobs runs in the provided interval.
+**schedule:** Each namespace within timeRules will use the timeZone and recurrence to create the cron rule.
+**downscalerOptions.ResourceScaling:** It will create a default config for any index of rules, meaning it will consider to scale deployments/statefulsets (If some namespace have different needs, maybe only statefulsets, can be overrided with overrideScaling)
+**downscalerOptions.timeRules.rules:** Each index is a config block with namespaces to scale during downscaleTime and upscaleTime.
+
+```yaml
+apiVersion: downscaler.go/v1alpha1
+kind: Downscaler
+metadata:
+  name: downscaler
+  namespace: downscaler
+spec:
+  config:
+    cronLoggerInterval: 60
+  schedule:
+    timeZone: "America/Sao_Paulo"
+    recurrence: "@daily"
+  downscalerOptions:
+    resourceScaling:
+      - deployments
+      - statefulset
+    timeRules:
+      rules:
+        - name: "Rule to downscale deployments from requirement A"
+          namespaces:
+            - "app"
+            - "app2"
+          upscaleTime: "16:33"
+          downscaleTime: "16:30"
+          overrideScaling: ["deployments", "statefulset"]
+
+        - name: "Rule to downscale deployments from requirement B"
+          namespaces:
+            - "app3"
+            - "app4"
+          upscaleTime: "16:33"
+          downscaleTime: "16:30"
+
+        - name: "Rule to downscale statefulset from requirement C"
+          namespaces:
+            - "app10"
+          upscaleTime: "16:33"
+          downscaleTime: "16:30"
 ```
 
-**NOTE:** This image ought to be published in the personal registry you specified.
-And it is required to have access to pull the image from the working environment.
-Make sure you have the proper permission to the registry if the above commands don’t work.
+#### To enable or switch database mode it must me done in the deployment object.
 
-**Install the CRDs into the cluster:**
+A flag need to be enabled: --database=true
+**Variables:**
+DB_DRIVER: sqlite/postgres
+DB_DSN: if sqlite = ""
+DB_DSN: if postgres = postgres://user:password@host:5432/db
 
-```sh
-make install
+**If provided something wrong instead of both these drivers, the app will fallback to memory mode.**
+
+The config below will enable sqlite.
+
+```yaml
+containers:
+  - name: downscaler
+    image: ""
+    command:
+      - /manager
+    args:
+      - "--database=true"
+    env:
+      - name: DB_DRIVER
+        value: "sqlite"
+      - name: DB_DSN
+        value: ""
 ```
 
-**Deploy the Manager to the cluster with the image specified by `IMG`:**
+The config belo will enable postgres.
 
-```sh
-make deploy IMG=<some-registry>/operatordownscaler:tag
+```yaml
+containers:
+  - name: downscaler
+    image: ""
+    command:
+      - /manager
+    args:
+      - "--database=true"
+    env:
+      - name: DB_DRIVER
+        value: "postgres"
+      - name: DB_DSN
+        value: "postgres://user:password@host:5432/db"
 ```
 
-> **NOTE**: If you encounter RBAC errors, you may need to grant yourself cluster-admin
-privileges or be logged in as admin.
+#### The app logging:
 
-**Create instances of your solution**
-You can apply the samples (examples) from the config/sample:
+![alt text](./assets/logs.png)
 
-```sh
-kubectl apply -k config/samples/
+### Installing:
+
+- RBAC:
+
+```
+kubectl apply -f config/deploy/rbac
 ```
 
->**NOTE**: Ensure that the samples has default values to test it out.
+- CRDs:
 
-### To Uninstall
-**Delete the instances (CRs) from the cluster:**
-
-```sh
-kubectl delete -k config/samples/
+```
+kubectl apply -f config/deploy/crds
 ```
 
-**Delete the APIs(CRDs) from the cluster:**
+- ServiceAccount:
 
-```sh
-make uninstall
+```
+kubectl apply -f config/deploy/sa
 ```
 
-**UnDeploy the controller from the cluster:**
+- Downscaler (customize it first):
 
-```sh
-make undeploy
 ```
-
-## Project Distribution
-
-Following are the steps to build the installer and distribute this project to users.
-
-1. Build the installer for the image built and published in the registry:
-
-```sh
-make build-installer IMG=<some-registry>/operatordownscaler:tag
+kubectl apply -f config/deploy/downscaler
 ```
-
-NOTE: The makefile target mentioned above generates an 'install.yaml'
-file in the dist directory. This file contains all the resources built
-with Kustomize, which are necessary to install this project without
-its dependencies.
-
-2. Using the installer
-
-Users can just run kubectl apply -f <URL for YAML BUNDLE> to install the project, i.e.:
-
-```sh
-kubectl apply -f https://raw.githubusercontent.com/<org>/operatordownscaler/<tag or branch>/dist/install.yaml
-```
-
-## Contributing
-// TODO(user): Add detailed information on how you would like others to contribute to this project
-
-**NOTE:** Run `make help` for more information on all potential `make` targets
-
-More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
-
-## License
-
-Copyright 2024.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-
