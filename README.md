@@ -73,7 +73,7 @@ The config below will enable sqlite.
 ```yaml
 containers:
   - name: downscaler
-    image: ""
+    image: "ghcr.io/adalbertjnr/downscalerk8s:latest"
     command:
       - /manager
     args:
@@ -90,7 +90,7 @@ The config belo will enable postgres.
 ```yaml
 containers:
   - name: downscaler
-    image: ""
+    image: "ghcr.io/adalbertjnr/downscalerk8s:latest"
     command:
       - /manager
     args:
@@ -108,6 +108,8 @@ containers:
 
 ### Installing:
 
+- Image: ghcr.io/adalbertjnr/downscalerk8s:latest
+
 - RBAC:
 
 ```
@@ -118,12 +120,6 @@ kubectl apply -f config/deploy/rbac
 
 ```
 kubectl apply -f config/deploy/crds
-```
-
-- ServiceAccount:
-
-```
-kubectl apply -f config/deploy/sa
 ```
 
 - Downscaler (customize it first):
