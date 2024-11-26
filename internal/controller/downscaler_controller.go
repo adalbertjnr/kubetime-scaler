@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	downscalergov1alpha1 "github.com/adalbertjnr/downscalerk8s/api/v1alpha1"
-	"github.com/adalbertjnr/downscalerk8s/internal/scheduler"
+	"github.com/adalbertjnr/downscalerk8s/internal/manager"
 	"github.com/go-logr/logr"
 )
 
@@ -34,7 +34,7 @@ type DownscalerReconciler struct {
 	Scheme *runtime.Scheme
 	Logger logr.Logger
 
-	DownscalerScheduler *scheduler.Downscaler
+	DownscalerScheduler *manager.Downscaler
 }
 
 //+kubebuilder:rbac:groups=downscaler.go,resources=downscalers,verbs=get;list;watch;create;update;patch;delete

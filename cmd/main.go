@@ -39,7 +39,7 @@ import (
 	"github.com/adalbertjnr/downscalerk8s/internal/controller"
 	"github.com/adalbertjnr/downscalerk8s/internal/db"
 	"github.com/adalbertjnr/downscalerk8s/internal/factory"
-	"github.com/adalbertjnr/downscalerk8s/internal/scheduler"
+	"github.com/adalbertjnr/downscalerk8s/internal/manager"
 	"github.com/adalbertjnr/downscalerk8s/internal/store"
 	"github.com/adalbertjnr/downscalerk8s/internal/utils"
 	"github.com/go-logr/logr"
@@ -153,7 +153,7 @@ func main() {
 		scalerFactory = factory.NewScalerFactory(apiClient, storeClient, logger)
 	}
 
-	downscalerScheduler := (&scheduler.Downscaler{}).
+	downscalerScheduler := (&manager.Downscaler{}).
 		Client(apiClient).
 		Factory(scalerFactory).
 		Persistence(storeClient).

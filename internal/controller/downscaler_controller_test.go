@@ -33,7 +33,7 @@ import (
 	"github.com/adalbertjnr/downscalerk8s/internal/client"
 	"github.com/adalbertjnr/downscalerk8s/internal/db"
 	"github.com/adalbertjnr/downscalerk8s/internal/factory"
-	"github.com/adalbertjnr/downscalerk8s/internal/scheduler"
+	"github.com/adalbertjnr/downscalerk8s/internal/manager"
 	"github.com/adalbertjnr/downscalerk8s/internal/store"
 	"github.com/adalbertjnr/downscalerk8s/internal/utils"
 )
@@ -108,7 +108,7 @@ var _ = Describe("Downscaler Controller", func() {
 			storeClient := store.New(logr.Logger{}, false, dbConfig)
 			scalerFactory := factory.NewScalerFactory(apiClient, storeClient, logr.Logger{})
 
-			downscalerScheduler := (&scheduler.Downscaler{}).
+			downscalerScheduler := (&manager.Downscaler{}).
 				Client(apiClient).
 				Factory(scalerFactory).
 				Persistence(storeClient).

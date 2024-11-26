@@ -1,4 +1,4 @@
-package scheduler
+package manager
 
 import (
 	"context"
@@ -16,22 +16,15 @@ import (
 )
 
 type Downscaler struct {
-	app downscalergov1alpha1.Downscaler
-
-	client *client.APIClient
-
-	cron *cron.Cron
-
-	log logr.Logger
-
-	getFactory *factory.FactoryScaler
-
+	app                downscalergov1alpha1.Downscaler
+	client             *client.APIClient
+	cron               *cron.Cron
+	log                logr.Logger
+	getFactory         *factory.FactoryScaler
 	cronEntriesMapping map[cron.EntryID]cronEntries
-
-	store       *store.Persistence
-	persistence bool
-
-	cancelFunc context.CancelFunc
+	store              *store.Persistence
+	persistence        bool
+	cancelFunc         context.CancelFunc
 }
 
 func (dc *Downscaler) Client(c *client.APIClient) *Downscaler {
@@ -62,7 +55,7 @@ func (dc *Downscaler) handleDatabase() {
 		return
 	}
 	if err := dc.store.ScalingOperation.Bootstrap(context.Background()); err != nil {
-		dc.log.Error(err, "database", "creation error", err)
+		dc.log.Error(err, "database", "table bootstrap error", err)
 		return
 	}
 }

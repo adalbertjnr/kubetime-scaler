@@ -1,6 +1,8 @@
 package utils
 
-import "os"
+import (
+	"os"
+)
 
 const namespacePath = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
 

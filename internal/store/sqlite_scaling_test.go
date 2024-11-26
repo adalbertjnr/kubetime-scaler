@@ -18,7 +18,7 @@ func setSqliteTestDBClient(t *testing.T) *sql.DB {
 	return db
 }
 
-func TestScalingOperationLifecycle(t *testing.T) {
+func TestSqliteScalingOperationLifecycle(t *testing.T) {
 	db := setSqliteTestDBClient(t)
 	defer db.Close()
 

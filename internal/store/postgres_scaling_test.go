@@ -22,7 +22,7 @@ func setPostgresTestDBClient(t *testing.T, connString string) *sql.DB {
 	return db
 }
 
-func TestPostgres(t *testing.T) {
+func TestPostgresScalingOperationLifecycle(t *testing.T) {
 	ctx := context.Background()
 
 	const (
