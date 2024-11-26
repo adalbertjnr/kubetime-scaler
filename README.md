@@ -14,7 +14,7 @@ The project can be used with postgres, sqlite or memory.
 ## Getting started - Yaml example
 
 **cronLoggerInterval:** It will print the next cronjobs runs in the provided interval.
-**schedule:** Each namespace within timeRules will use the timeZone and recurrence to create the cron rule.
+**schedule:** Each namespace within timeRules will use the timeZone and recurrence to create the cron rule. Recurrence can be @daily and weekday-weekday. Example to create a config to run from monday to friday. **recurrence: MON-FRI**
 **downscalerOptions.ResourceScaling:** It will create a default config for any index of rules, meaning it will consider to scale deployments/statefulsets (If some namespace have different needs, maybe only statefulsets, can be overrided with overrideScaling)
 **downscalerOptions.timeRules.rules:** Each index is a config block with namespaces to scale during downscaleTime and upscaleTime.
 
@@ -63,8 +63,8 @@ spec:
 A flag need to be enabled: --database=true
 **Variables:**
 DB_DRIVER: sqlite/postgres
-DB_DSN: if sqlite = ""
-DB_DSN: if postgres = postgres://user:password@host:5432/db
+DB_ADDR: if sqlite = ""
+DB_ADDR: if postgres = postgres://user:password@host:5432/db
 
 **If provided something wrong instead of both these drivers, the app will fallback to memory mode.**
 
@@ -81,7 +81,7 @@ containers:
     env:
       - name: DB_DRIVER
         value: "sqlite"
-      - name: DB_DSN
+      - name: DB_ADDR
         value: ""
 ```
 

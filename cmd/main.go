@@ -88,12 +88,6 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
-	// if the enable-http2 flag is false (the default), http/2 should be disabled
-	// due to its vulnerabilities. More specifically, disabling http/2 will
-	// prevent from being vulnerable to the HTTP/2 Stream Cancellation and
-	// Rapid Reset CVEs. For more information see:
-	// - https://github.com/advisories/GHSA-qppj-fm5r-hxr3
-	// - https://github.com/advisories/GHSA-4374-p667-p6c8
 	disableHTTP2 := func(c *tls.Config) {
 		setupLog.Info("disabling http/2")
 		c.NextProtos = []string{"http/1.1"}
@@ -117,19 +111,6 @@ func main() {
 		},
 		WebhookServer:          webhookServer,
 		HealthProbeBindAddress: probeAddr,
-		// LeaderElection:         enableLeaderElection,
-		// LeaderElectionID:       "91ae71bd.downscaler.go",
-		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
-		// when the Manager ends. This requires the binary to immediately end when the
-		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
-		// speeds up voluntary leader transitions as the new leader don't have to wait
-		// LeaseDuration time first.
-		//
-		// In the default scaffold provided, the program ends immediately after
-		// the manager stops, so would be fine to enable this option. However,
-		// if you are doing or is intended to do any operation such as perform cleanups
-		// after the manager stops then its usage might be unsafe.
-		// LeaderElectionReleaseOnCancel: true,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
@@ -144,7 +125,7 @@ func main() {
 
 	dbConfig := db.Config{
 		Driver: utils.LookupString(os.Getenv("DB_DRIVER"), "memory_store"),
-		DSN:    utils.LookupString(os.Getenv("DSN"), ""),
+		DSN:    utils.LookupString(os.Getenv("DB_ADDR"), ""),
 	}
 
 	{

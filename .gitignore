@@ -7,6 +7,15 @@
 bin/*
 Dockerfile.cross
 
+config/crd
+config/default
+config/manager
+config/manifests
+config/prometheus
+config/rbac
+config/samples
+config/scorecard
+
 # Test binary, built with `go test -c`
 *.test
 

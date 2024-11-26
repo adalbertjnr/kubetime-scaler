@@ -1,0 +1,37 @@
+apiVersion: downscaler.go/v1alpha1
+kind: Downscaler
+metadata:
+  name: downscaler
+  namespace: downscaler
+spec:
+  config:
+    cronLoggerInterval: 60
+  schedule:
+    timeZone: "America/Sao_Paulo"
+    recurrence: "@daily"
+  downscalerOptions:
+    resourceScaling:
+      - deployments
+      - statefulset
+    timeRules:
+      rules:
+        - name: "Rule to downscale deployments from requirement A"
+          namespaces:
+          - "app"
+          - "app2"
+          upscaleTime: "16:33"
+          downscaleTime: "16:30"
+          overrideScaling: ["deployments", "statefulset"]
+
+        - name: "Rule to downscale deployments from requirement B"
+          namespaces:
+          - "app3"
+          - "app4"
+          upscaleTime: "16:33"
+          downscaleTime: "16:30"
+
+        - name: "Rule to downscale statefulset from requirement C"
+          namespaces:
+          - "app10"
+          upscaleTime: "16:33"
+          downscaleTime: "16:30"
