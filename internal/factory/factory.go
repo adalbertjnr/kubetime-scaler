@@ -18,8 +18,8 @@ type ResourceScaler interface {
 }
 
 type ScaleDeployment struct {
-	client *client.APIClient
-	logger logr.Logger
+	Client *client.APIClient
+	Logger logr.Logger
 
 	selfNamespace map[string]downscalerDeploymentMetadata
 
@@ -72,14 +72,14 @@ func writeReplicas(ctx context.Context, sc *store.Persistence, persistence bool,
 
 func (sc *ScaleDeployment) Run(downscalerObject downscalergov1alpha1.Downscaler, RuleNameDescription, objectNamespace string, operationTypeReplicas types.ScalingOperation) error {
 	var deployments appsv1.DeploymentList
-	if err := sc.client.Get(objectNamespace, &deployments); err != nil {
+	if err := sc.Client.Get(objectNamespace, &deployments); err != nil {
 		return err
 	}
 
 	defer func() {
 		if object, exists := sc.selfNamespace[downscalerObject.Name]; exists {
-			if err := sc.client.Patch(object.scalingOperationObject.Replicas, &object.deployment); err != nil {
-				sc.logger.Error(err, "client", "name", downscalerObject.Name, "self patching error", err)
+			if err := sc.Client.Patch(object.scalingOperationObject.Replicas, &object.deployment); err != nil {
+				sc.Logger.Error(err, "client", "name", downscalerObject.Name, "self patching error", err)
 			}
 			delete(sc.selfNamespace, object.deployment.Name)
 		}
@@ -126,18 +126,18 @@ func (sc *ScaleDeployment) Run(downscalerObject downscalergov1alpha1.Downscaler,
 				&defaultScalingObjectValues,
 			); err != nil {
 				if !errors.Is(err, ErrNotErrorDisabledPersitence) {
-					sc.logger.Error(err, "database", "reading replicas error", err)
+					sc.Logger.Error(err, "database", "reading replicas error", err)
 					return err
 				}
 			}
 		}
 
-		if err := sc.client.Patch(defaultScalingObjectValues.Replicas, &deployment); err != nil {
-			sc.logger.Error(err, "client", "error patching deployment", err)
+		if err := sc.Client.Patch(defaultScalingObjectValues.Replicas, &deployment); err != nil {
+			sc.Logger.Error(err, "client", "error patching deployment", err)
 			return err
 		}
 
-		sc.logger.Info("client",
+		sc.Logger.Info("client",
 			"patching deployment", deployment.Name,
 			"namespace", objectNamespace,
 			"before", currentObjectReplicas,
@@ -224,8 +224,8 @@ func NewScalerFactory(client *client.APIClient, store *store.Persistence, logger
 	persistence := store != nil
 	return &FactoryScaler{
 		types.DeploymentObjectResource: &ScaleDeployment{
-			client:        client,
-			logger:        logger,
+			Client:        client,
+			Logger:        logger,
 			storeClient:   store,
 			persistence:   persistence,
 			selfNamespace: make(map[string]downscalerDeploymentMetadata),
