@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 
+	downscalergov1alpha1 "github.com/adalbertjnr/downscalerk8s/api/v1alpha1"
 	"github.com/adalbertjnr/downscalerk8s/internal/client"
 	"github.com/adalbertjnr/downscalerk8s/internal/store"
 	"github.com/adalbertjnr/downscalerk8s/internal/types"
@@ -12,18 +13,15 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 )
 
-const (
-	DEPLOYMENT  = "deployments"
-	STATEFULSET = "statefulset"
-)
-
 type ResourceScaler interface {
-	Run(ruleName, namespace string, replicas types.ScalingOperation) error
+	Run(downscalerObject downscalergov1alpha1.Downscaler, ruleName, namespace string, replicas types.ScalingOperation) error
 }
 
 type ScaleDeployment struct {
 	client *client.APIClient
 	logger logr.Logger
+
+	selfNamespace map[string]downscalerDeploymentMetadata
 
 	persistence bool
 	storeClient *store.Persistence
@@ -34,6 +32,11 @@ var (
 	ErrNotErrorOperationUpscale   = errors.New("upscale operation. no need to write the replicas in the database")
 	ErrNotErrorOperationDownscale = errors.New("downscale operation. no need to read the replicas in the database")
 )
+
+type downscalerDeploymentMetadata struct {
+	deployment             appsv1.Deployment
+	scalingOperationObject store.ScalingOperation
+}
 
 func readReplicas(ctx context.Context, sc *store.Persistence, persistence bool, defaultScalingObject *store.ScalingOperation) error {
 	if !persistence {
@@ -67,11 +70,20 @@ func writeReplicas(ctx context.Context, sc *store.Persistence, persistence bool,
 	return nil
 }
 
-func (sc *ScaleDeployment) Run(RuleNameDescription, objectNamespace string, operationTypeReplicas types.ScalingOperation) error {
+func (sc *ScaleDeployment) Run(downscalerObject downscalergov1alpha1.Downscaler, RuleNameDescription, objectNamespace string, operationTypeReplicas types.ScalingOperation) error {
 	var deployments appsv1.DeploymentList
 	if err := sc.client.Get(objectNamespace, &deployments); err != nil {
 		return err
 	}
+
+	defer func() {
+		if object, exists := sc.selfNamespace[downscalerObject.Name]; exists {
+			if err := sc.client.Patch(object.scalingOperationObject.Replicas, &object.deployment); err != nil {
+				sc.logger.Error(err, "client", "name", downscalerObject.Name, "self patching error", err)
+			}
+			delete(sc.selfNamespace, object.deployment.Name)
+		}
+	}()
 
 	for _, deployment := range deployments.Items {
 		currentObjectReplicas := *deployment.Spec.Replicas
@@ -80,11 +92,19 @@ func (sc *ScaleDeployment) Run(RuleNameDescription, objectNamespace string, oper
 			ResourceName:        deployment.Name,
 			RuleNameDescription: RuleNameDescription,
 			NamespaceName:       objectNamespace,
-			ResourceType:        DEPLOYMENT,
+			ResourceType:        types.DeploymentObjectResource.String(),
 			Replicas:            int(operationTypeReplicas),
 		}
 
 		if operationTypeReplicas == types.OperationDownscale {
+			if deployment.Name == downscalerObject.Name {
+				sc.selfNamespace[downscalerObject.Name] = downscalerDeploymentMetadata{
+					deployment:             deployment,
+					scalingOperationObject: defaultScalingObjectValues,
+				}
+				continue
+			}
+
 			if err := writeReplicas(
 				context.Background(),
 				sc.storeClient,
@@ -137,7 +157,7 @@ type ScaleStatefulSet struct {
 	storeClient *store.Persistence
 }
 
-func (sc *ScaleStatefulSet) Run(ruleNameDescription, objectNamespace string, operationTypeReplicas types.ScalingOperation) error {
+func (sc *ScaleStatefulSet) Run(downscalerObject downscalergov1alpha1.Downscaler, ruleNameDescription, objectNamespace string, operationTypeReplicas types.ScalingOperation) error {
 	var statefulSets appsv1.StatefulSetList
 	if err := sc.client.Get(objectNamespace, &statefulSets); err != nil {
 		return err
@@ -150,7 +170,7 @@ func (sc *ScaleStatefulSet) Run(ruleNameDescription, objectNamespace string, ope
 			RuleNameDescription: ruleNameDescription,
 			ResourceName:        statefulSet.Name,
 			NamespaceName:       objectNamespace,
-			ResourceType:        STATEFULSET,
+			ResourceType:        types.StatefulSetObjectResource.String(),
 			Replicas:            int(operationTypeReplicas),
 		}
 
@@ -198,19 +218,20 @@ func (sc *ScaleStatefulSet) Run(ruleNameDescription, objectNamespace string, ope
 	return nil
 }
 
-type FactoryScaler map[string]ResourceScaler
+type FactoryScaler map[types.ResourceType]ResourceScaler
 
 func NewScalerFactory(client *client.APIClient, store *store.Persistence, logger logr.Logger) *FactoryScaler {
 	persistence := store != nil
 	return &FactoryScaler{
-		DEPLOYMENT: &ScaleDeployment{
-			client:      client,
-			logger:      logger,
-			storeClient: store,
-			persistence: persistence,
+		types.DeploymentObjectResource: &ScaleDeployment{
+			client:        client,
+			logger:        logger,
+			storeClient:   store,
+			persistence:   persistence,
+			selfNamespace: make(map[string]downscalerDeploymentMetadata),
 		},
 
-		STATEFULSET: &ScaleStatefulSet{
+		types.StatefulSetObjectResource: &ScaleStatefulSet{
 			client:      client,
 			logger:      logger,
 			storeClient: store,

@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"github.com/adalbertjnr/downscalerk8s/internal/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -47,16 +48,16 @@ type TimeRules struct {
 }
 
 type DownscalerOptions struct {
-	TimeRules       *TimeRules `json:"timeRules"`
-	ResourceScaling []string   `json:"resourceScaling"`
+	TimeRules       *TimeRules           `json:"timeRules"`
+	ResourceScaling []types.ResourceType `json:"resourceScaling"`
 }
 
 type Rules struct {
-	Name            string      `json:"name"`
-	Namespaces      []Namespace `json:"namespaces"`
-	UpscaleTime     string      `json:"upscaleTime"`
-	DownscaleTime   string      `json:"downscaleTime"`
-	OverrideScaling []string    `json:"overrideScaling,omitempty"`
+	Name            string               `json:"name"`
+	Namespaces      []Namespace          `json:"namespaces"`
+	UpscaleTime     string               `json:"upscaleTime"`
+	DownscaleTime   string               `json:"downscaleTime"`
+	OverrideScaling []types.ResourceType `json:"overrideScaling,omitempty"`
 }
 
 type Namespace string

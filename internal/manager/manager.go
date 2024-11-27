@@ -72,7 +72,7 @@ func (dc *Downscaler) Run() (ctrl.Result, error) {
 	return ctrl.Result{}, nil
 }
 
-func (dc *Downscaler) addCronJob(ruleNameDescription, scaleStr string, overrideScaling []string, namespace downscalergov1alpha1.Namespace, defaultScaleReplicas types.ScalingOperation) {
+func (dc *Downscaler) addCronJob(ruleNameDescription, scaleStr string, overrideScaling []types.ResourceType, namespace downscalergov1alpha1.Namespace, defaultScaleReplicas types.ScalingOperation) {
 	expression := dc.buildCronExpression(dc.recurrence(), scaleStr)
 
 	entryID, err := dc.cron.AddFunc(expression, dc.job(namespace, defaultScaleReplicas))
@@ -111,10 +111,10 @@ func (dc *Downscaler) job(namespace downscalergov1alpha1.Namespace, defaultScale
 	}
 }
 
-func (dc *Downscaler) execute(ruleName, namespace string, replicas types.ScalingOperation, overrideResource []string) {
+func (dc *Downscaler) execute(ruleName, namespace string, replicas types.ScalingOperation, overrideResource []types.ResourceType) {
 	for _, resource := range overrideResource {
 		if resourceScaler, created := (*dc.getFactory)[resource]; created {
-			if err := resourceScaler.Run(ruleName, namespace, replicas); err != nil {
+			if err := resourceScaler.Run(dc.app, ruleName, namespace, replicas); err != nil {
 				dc.log.Error(err, "job", "resource", resource, "scaling error", err)
 			}
 		}
@@ -124,7 +124,7 @@ func (dc *Downscaler) execute(ruleName, namespace string, replicas types.Scaling
 type cronEntries struct {
 	ruleNameDescription string
 	namespace           string
-	overrideReplicas    []string
+	overrideReplicas    []types.ResourceType
 }
 
 func (dc *Downscaler) initializeCronTasks() {
@@ -155,6 +155,18 @@ func (dc *Downscaler) notifyCronEntries(ctx context.Context) {
 	interval := dc.app.Spec.Config.CronLoggerInterval
 	if interval <= 0 {
 		interval = 300
+	}
+
+	for _, entry := range dc.cron.Entries() {
+		if e, found := dc.cronEntriesMapping[entry.ID]; found {
+			dc.log.Info("cron",
+				"namespace", e.namespace,
+				"override_scaling", e.overrideReplicas,
+				"description", e.ruleNameDescription,
+				"entryID", entry.ID,
+				"nextRun", entry.Next,
+			)
+		}
 	}
 
 	ticker := time.NewTicker(time.Second * time.Duration(interval))
@@ -233,7 +245,7 @@ func (dc *Downscaler) rules() []downscalergov1alpha1.Rules {
 	return dc.app.Spec.DownscalerOptions.TimeRules.Rules
 }
 
-func (dc *Downscaler) resourceScaling() []string {
+func (dc *Downscaler) resourceScaling() []types.ResourceType {
 	return dc.app.Spec.DownscalerOptions.ResourceScaling
 }
 

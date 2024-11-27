@@ -21,6 +21,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"github.com/adalbertjnr/downscalerk8s/internal/types"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -108,7 +109,7 @@ func (in *DownscalerOptions) DeepCopyInto(out *DownscalerOptions) {
 	}
 	if in.ResourceScaling != nil {
 		in, out := &in.ResourceScaling, &out.ResourceScaling
-		*out = make([]string, len(*in))
+		*out = make([]types.ResourceType, len(*in))
 		copy(*out, *in)
 	}
 }
@@ -166,7 +167,7 @@ func (in *Rules) DeepCopyInto(out *Rules) {
 	}
 	if in.OverrideScaling != nil {
 		in, out := &in.OverrideScaling, &out.OverrideScaling
-		*out = make([]string, len(*in))
+		*out = make([]types.ResourceType, len(*in))
 		copy(*out, *in)
 	}
 }

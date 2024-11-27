@@ -35,6 +35,7 @@ import (
 	"github.com/adalbertjnr/downscalerk8s/internal/factory"
 	"github.com/adalbertjnr/downscalerk8s/internal/manager"
 	"github.com/adalbertjnr/downscalerk8s/internal/store"
+	objecttypes "github.com/adalbertjnr/downscalerk8s/internal/types"
 	"github.com/adalbertjnr/downscalerk8s/internal/utils"
 )
 
@@ -71,7 +72,7 @@ var _ = Describe("Downscaler Controller", func() {
 						Config:   downscalergov1alpha1.Config{CronLoggerInterval: 60},
 						Schedule: downscalergov1alpha1.Schedule{TimeZone: "America/Sao_Paulo", Recurrence: "@daily"},
 						DownscalerOptions: downscalergov1alpha1.DownscalerOptions{
-							ResourceScaling: []string{"deployments", "statefulset"},
+							ResourceScaling: []objecttypes.ResourceType{"deployments", "statefulset"},
 							TimeRules: &downscalergov1alpha1.TimeRules{
 								Rules: []downscalergov1alpha1.Rules{
 									{
@@ -79,7 +80,7 @@ var _ = Describe("Downscaler Controller", func() {
 										Namespaces:      []downscalergov1alpha1.Namespace{"test1", "test2"},
 										DownscaleTime:   "15:30",
 										UpscaleTime:     "15:40",
-										OverrideScaling: []string{"deployments", "statefulset"},
+										OverrideScaling: []objecttypes.ResourceType{"deployments", "statefulset"},
 									},
 								},
 							},
