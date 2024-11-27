@@ -3,6 +3,7 @@ package manager
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	downscalergov1alpha1 "github.com/adalbertjnr/downscalerk8s/api/v1alpha1"
@@ -220,7 +221,7 @@ func (dc *Downscaler) createNewClient() error {
 			return fmt.Errorf("error loading object timezone: %v", err)
 		}
 
-		cron := cron.New(cron.WithLocation(location))
+		cron := cron.New(cron.WithLocation(location), cron.WithSeconds())
 		dc.cron = cron
 	}
 
@@ -228,17 +229,21 @@ func (dc *Downscaler) createNewClient() error {
 }
 
 func (dc *Downscaler) buildCronExpression(recurrence, timeStr string) string {
-	t, err := time.Parse("15:04", timeStr)
+	timeStrParts := strings.Split(timeStr, ":")
+	if len(timeStrParts) == 2 {
+		timeStr = timeStr + ":00"
+	}
+	t, err := time.Parse("15:04:05", timeStr)
 	if err != nil {
 		dc.log.Error(err, "Invalid time format", "timeStr", timeStr, "error", err)
 		return "0 0 * * *"
 	}
 
 	if recurrence == "*" || recurrence == "@daily" {
-		return fmt.Sprintf("%d %d * * *", t.Minute(), t.Hour())
+		return fmt.Sprintf("%d %d %d * * *", t.Second(), t.Minute(), t.Hour())
 	}
 
-	return fmt.Sprintf("%d %d * * %s", t.Minute(), t.Hour(), recurrence)
+	return fmt.Sprintf("%d %d %d * * %s", t.Second(), t.Minute(), t.Hour(), recurrence)
 }
 
 func (dc *Downscaler) rules() []downscalergov1alpha1.Rules {

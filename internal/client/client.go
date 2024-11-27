@@ -55,10 +55,14 @@ func (c *APIClient) Patch(replicas int, object any) error {
 	}
 }
 
-func (c *APIClient) Get(namespace string, resource any) error {
+func (c *APIClient) Get(namespace string, resource any, name ...string) error {
 	listOpts := &client.ListOptions{Namespace: namespace}
 
 	switch value := resource.(type) {
+	case *appsv1.Deployment:
+		return c.Client.Get(c.ctx, types.NamespacedName{Name: name[0], Namespace: namespace}, value)
+	case *appsv1.StatefulSet:
+		return c.Client.Get(c.ctx, types.NamespacedName{Name: name[0], Namespace: namespace}, value)
 	case *appsv1.DeploymentList:
 		return c.Client.List(c.ctx, value, listOpts)
 	case *appsv1.StatefulSetList:
