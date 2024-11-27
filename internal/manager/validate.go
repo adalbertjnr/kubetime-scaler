@@ -42,12 +42,12 @@ func (s *Downscaler) Validate() bool {
 
 func processScheduleFields(schedule *v1alpha1.Schedule, validationErrors *[]error) {
 	if schedule == nil {
-		err := field.Invalid(field.NewPath(Spec).Child(Schedule), schedule, "")
+		err := field.Invalid(field.NewPath(Spec).Child(Schedule), schedule, "Schedule is required")
 		*validationErrors = append(*validationErrors, err)
 		return
 	}
 	if schedule.TimeZone == "" || len(strings.Split(schedule.TimeZone, "/")) == 1 {
-		err := field.Invalid(field.NewPath(Spec).Child(Schedule).Child(TimeZone), schedule.TimeZone, "")
+		err := field.Invalid(field.NewPath(Spec).Child(Schedule).Child(TimeZone), schedule.TimeZone, "Invalid time zone")
 		*validationErrors = append(*validationErrors, err)
 	}
 }
@@ -56,19 +56,19 @@ func processDownscalerOptions(options *v1alpha1.DownscalerOptions, validationErr
 	childBase := field.NewPath(Spec).Child(DownscalerOptions)
 
 	if options == nil {
-		err := field.Invalid(childBase, options, "")
+		err := field.Invalid(childBase, options, "DownscalerOptions is required")
 		*validationErrors = append(*validationErrors, err)
 		return
 	}
 
 	if options.TimeRules == nil {
-		err := field.Invalid(childBase.Child(TimeRules), options.TimeRules, "")
+		err := field.Invalid(childBase.Child(TimeRules), options.TimeRules, "TimeRules is required")
 		*validationErrors = append(*validationErrors, err)
 		return
 	}
 
 	if options.TimeRules.Rules == nil {
-		err := field.Invalid(childBase.Child(TimeRules).Child(Rules), options.TimeRules.Rules, "")
+		err := field.Invalid(childBase.Child(TimeRules).Child(Rules), options.TimeRules.Rules, "At least one rule is required")
 		*validationErrors = append(*validationErrors, err)
 		return
 	}
@@ -77,17 +77,17 @@ func processDownscalerOptions(options *v1alpha1.DownscalerOptions, validationErr
 		childRule := childBase.Child(TimeRules).Index(index)
 
 		if len(rule.Namespaces) == 0 {
-			err := field.Invalid(childRule.Child(Namespaces), rule.Namespaces, "")
+			err := field.Invalid(childRule.Child(Namespaces), rule.Namespaces, "Namespaces cannot be empty")
 			*validationErrors = append(*validationErrors, err)
 		}
 
 		if len(strings.Split(rule.UpscaleTime, ":")) == 1 {
-			err := field.Invalid(childRule.Child(Namespaces).Child(UpscaleTime), rule.UpscaleTime, "")
+			err := field.Invalid(childRule.Child(Namespaces).Child(UpscaleTime), rule.UpscaleTime, "Invalid upscale time format")
 			*validationErrors = append(*validationErrors, err)
 		}
 
 		if len(strings.Split(rule.DownscaleTime, ":")) == 1 {
-			err := field.Invalid(childRule.Child(Namespaces).Child(DownscaleTime), rule.DownscaleTime, "")
+			err := field.Invalid(childRule.Child(Namespaces).Child(DownscaleTime), rule.DownscaleTime, "Invalid downscale time format")
 			*validationErrors = append(*validationErrors, err)
 		}
 
