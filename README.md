@@ -132,7 +132,7 @@ kubectl apply -f config/deploy/crds
 kubectl apply -f config/deploy/downscaler
 ```
 
-- Deployment (customize it first):
+- Deployment:
 
 ```
 kubectl apply -f config/deploy/deployment
