@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: downscaler
+  namespace: downscaler
+  labels:
+    app.kubernetes.io/name: operatordownscaler
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: operatordownscaler
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: operatordownscaler
+      annotations:
+        app.kubernetes.io/name: operatordownscaler
+    spec:
+      containers:
+        - name: downscaler
+          image: public.ecr.aws/v5l8y3e2/downscaler:latest
+          command:
+            - /manager
+          # args:
+          #   - '--database=true'
+          # env:
+          #   - name: DB_DRIVER
+          #     value: sqlite
+          #   - name: DB_ADDR
+          resources:
+            limits:
+              cpu: 125m
+              memory: 128Mi
+            requests:
+              cpu: 10m
+              memory: 64Mi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+              scheme: HTTP
+            initialDelaySeconds: 15
+            timeoutSeconds: 1
+            periodSeconds: 20
+            successThreshold: 1
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8081
+              scheme: HTTP
+            initialDelaySeconds: 5
+            timeoutSeconds: 1
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+          imagePullPolicy: Always
+          securityContext:
+            capabilities:
+              drop:
+                - ALL
+            allowPrivilegeEscalation: false
+      serviceAccountName: downscaler-sa
+      serviceAccount: downscaler-sa
+      securityContext:
+        runAsNonRoot: true

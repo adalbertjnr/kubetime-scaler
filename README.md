@@ -18,6 +18,8 @@ The project can be used with postgres, sqlite or memory.
 **downscalerOptions.ResourceScaling:** It will create a default config for any index of rules, meaning it will consider to scale deployments/statefulsets (If some namespace have different needs, maybe only statefulsets, can be overrided with overrideScaling)
 **downscalerOptions.timeRules.rules:** Each index is a config block with namespaces to scale during downscaleTime and upscaleTime.
 
+**- Image: ghcr.io/adalbertjnr/downscalerk8s:latest**
+
 ```yaml
 apiVersion: downscaler.go/v1alpha1
 kind: Downscaler
@@ -85,7 +87,7 @@ containers:
         value: ""
 ```
 
-The config belo will enable postgres.
+The config below will enable postgres.
 
 ```yaml
 containers:
@@ -102,13 +104,15 @@ containers:
         value: "postgres://user:password@host:5432/db"
 ```
 
-#### The app logging:
+#### logging:
 
 ![alt text](./assets/logs.png)
 
 ### Installing:
 
-- Image: ghcr.io/adalbertjnr/downscalerk8s:latest
+```
+- kubectl create namespace downscaler
+```
 
 - RBAC:
 
@@ -126,4 +130,10 @@ kubectl apply -f config/deploy/crds
 
 ```
 kubectl apply -f config/deploy/downscaler
+```
+
+- Deployment (customize it first):
+
+```
+kubectl apply -f config/deploy/deployment
 ```
