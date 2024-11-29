@@ -98,7 +98,7 @@ containers:
     env:
       - name: DB_DRIVER
         value: "postgres"
-      - name: DB_DSN
+      - name: DB_ADDR
         value: "postgres://user:password@host:5432/db"
 ```
 
