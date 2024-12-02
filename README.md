@@ -44,9 +44,9 @@ spec:
             - "app2"
           upscaleTime: "16:33"
           downscaleTime: "16:30"
-          overrideScaling: ["deployments", "statefulset"]
+          overrideScaling: ["deployments"]
 
-        - name: "Rule to downscale deployments from requirement B"
+        - name: "Rule to downscale default resources options (deployments and statefulsets) from requirement B"
           namespaces:
             - "app3"
             - "app4"
@@ -58,6 +58,7 @@ spec:
             - "app10"
           upscaleTime: "16:33"
           downscaleTime: "16:30"
+          overrideScaling: ["statefulset"]
 ```
 
 #### To enable or switch database mode it must me done in the deployment object.
