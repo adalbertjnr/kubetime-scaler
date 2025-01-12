@@ -1,15 +1,15 @@
-# operatordownscaler - very experimental
+# kubetime-scaler - very experimental
 
-Project for downscale kubernetes deployments/statefulsets with time rules by namespaces
+Project for scale up and scale down kubernetes deployments/statefulsets with time rules by namespaces
 
 ## Description
 
-The idea is to downscale development/staging environments after working hours to reduce waste. Very handy with karpenter.
+The idea is to scale down development/staging environments after working hours to reduce waste. Very handy with karpenter.
 The project can be used with postgres, sqlite or memory.
 
-- **Memory**: It will always downscale to 0 and upscale to 1 (If managed with argocd the argo could handle the correct amount of replicas)
-- **Postgres**: It will always downscale to 0 and upscale to the last seen replicas before the downscale occurs.
-- **Sqlite**: It will always downscale to 0 and upscale to the last seen replicas before the downscale occurs. The difference is the database the sqlite creates must be persisted, otherwise it will be removed when the pod dies.
+- **Memory**: It will always scale down to 0 and scale up to 1 (If managed with argocd the argo could handle the correct amount of replicas)
+- **Postgres**: It will always scale down to 0 and scale up to the last seen replicas before the scale down occurs.
+- **Sqlite**: It will always scale down to 0 and scale up to the last seen replicas before the scale down occurs. The difference is the database the sqlite creates must be persisted, otherwise it will be removed when the pod dies.
 
 ## Getting started - Yaml example
 
@@ -18,7 +18,7 @@ The project can be used with postgres, sqlite or memory.
 **downscalerOptions.ResourceScaling:** It will create a default config for any index of rules, meaning it will consider to scale deployments/statefulsets (If some namespace have different needs, maybe only statefulsets, can be overrided with overrideScaling)
 **downscalerOptions.timeRules.rules:** Each index is a config block with namespaces to scale during downscaleTime and upscaleTime.
 
-**- Image: ghcr.io/adalbertjnr/downscalerk8s:latest**
+**- Image: ghcr.io/adalbertjnr/kubetime-scaler:latest**
 
 ```yaml
 apiVersion: downscaler.go/v1alpha1
@@ -76,7 +76,7 @@ The config below will enable sqlite.
 ```yaml
 containers:
   - name: downscaler
-    image: "ghcr.io/adalbertjnr/downscalerk8s:latest"
+    image: "ghcr.io/adalbertjnr/kubetime-scaler:latest"
     command:
       - /manager
     args:
@@ -93,7 +93,7 @@ The config below will enable postgres.
 ```yaml
 containers:
   - name: downscaler
-    image: "ghcr.io/adalbertjnr/downscalerk8s:latest"
+    image: "ghcr.io/adalbertjnr/kubetime-scaler:latest"
     command:
       - /manager
     args:
