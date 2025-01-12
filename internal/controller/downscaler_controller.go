@@ -23,8 +23,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	downscalergov1alpha1 "github.com/adalbertjnr/downscalerk8s/api/v1alpha1"
-	"github.com/adalbertjnr/downscalerk8s/internal/manager"
+	downscalergov1alpha1 "github.com/adalbertjnr/kubetime-scaler/api/v1alpha1"
+	"github.com/adalbertjnr/kubetime-scaler/internal/manager"
 	"github.com/go-logr/logr"
 )
 

@@ -1,4 +1,6 @@
-# kubetime-scaler - very experimental
+# kubetime-scaler
+
+# very-experimental
 
 Project for scale up and scale down kubernetes deployments/statefulsets with time rules by namespaces
 
@@ -24,8 +26,8 @@ The project can be used with postgres, sqlite or memory.
 apiVersion: downscaler.go/v1alpha1
 kind: Downscaler
 metadata:
-  name: downscaler
-  namespace: downscaler
+  name: kubetime-scaler
+  namespace: kubetime-scaler
 spec:
   config:
     cronLoggerInterval: 60
@@ -75,7 +77,7 @@ The config below will enable sqlite.
 
 ```yaml
 containers:
-  - name: downscaler
+  - name: kubetime-scaler
     image: "ghcr.io/adalbertjnr/kubetime-scaler:latest"
     command:
       - /manager
@@ -92,7 +94,7 @@ The config below will enable postgres.
 
 ```yaml
 containers:
-  - name: downscaler
+  - name: kubetime-scaler
     image: "ghcr.io/adalbertjnr/kubetime-scaler:latest"
     command:
       - /manager
