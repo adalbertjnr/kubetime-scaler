@@ -114,7 +114,7 @@ containers:
 ### Installing:
 
 ```
-- kubectl create namespace downscaler
+- kubectl create namespace kubetime-sacler
 ```
 
 - RBAC:
